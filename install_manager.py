@@ -62,7 +62,7 @@ class InstallManager:
             results['java'] = False
 
         # Check Keycloak
-        keycloak_path = self.parent_dir / "keycloak-26.0.5"
+        keycloak_path = self.parent_dir / "keycloak-26.4.0"
         results['keycloak'] = keycloak_path.exists()
 
         # Check Neo4j
@@ -115,16 +115,16 @@ class InstallManager:
     def _install_keycloak(self) -> Tuple[bool, str]:
         """Download and setup Keycloak"""
         try:
-            keycloak_dir = self.parent_dir / "keycloak-26.0.5"
+            keycloak_dir = self.parent_dir / "keycloak-26.4.0"
             if keycloak_dir.exists():
                 return True, "Keycloak already installed"
 
-            print("Downloading Keycloak 26.0.5...")
-            tar_file = self.parent_dir / "keycloak-26.0.5.tar.gz"
+            print("Downloading Keycloak 26.4.0...")
+            tar_file = self.parent_dir / "keycloak-26.4.0.tar.gz"
 
             subprocess.run([
                 'wget', '-O', str(tar_file),
-                'https://github.com/keycloak/keycloak/releases/download/26.0.5/keycloak-26.0.5.tar.gz'
+                'https://github.com/keycloak/keycloak/releases/download/26.4.0/keycloak-26.4.0.tar.gz'
             ], check=True)
 
             print("Extracting Keycloak...")

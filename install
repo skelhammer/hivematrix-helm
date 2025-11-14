@@ -89,7 +89,7 @@ echo ""
 
 # Clone or update the repository (as the real user, not root)
 MODULE_DIR="$PARENT_DIR/hivematrix-$MODULE_NAME"
-GIT_URL="https://github.com/ruapotato/hivematrix-$MODULE_NAME"
+GIT_URL="https://github.com/skelhammer/hivematrix-$MODULE_NAME"
 
 if [ -d "$MODULE_DIR" ]; then
     echo -e "${YELLOW}Module directory already exists: $MODULE_DIR${NC}"

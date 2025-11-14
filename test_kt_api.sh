@@ -1,5 +1,6 @@
 #!/bin/bash
-cd /home/david/Work/hivematrix/hivematrix-helm
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
 source pyenv/bin/activate
 
 # Get service token from Core
