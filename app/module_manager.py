@@ -21,7 +21,7 @@ class ModuleManager:
         'core': {
             'name': 'Core',
             'description': 'Authentication & JWT Token Management',
-            'git_url': 'https://github.com/Troy Pound/hivematrix-core.git',
+            'git_url': 'https://github.com/skelhammer/hivematrix-core.git',
             'port': 5000,
             'visible': False,
             'core_system': True
@@ -29,7 +29,7 @@ class ModuleManager:
         'nexus': {
             'name': 'Nexus',
             'description': 'Gateway & Reverse Proxy',
-            'git_url': 'https://github.com/Troy Pound/hivematrix-nexus.git',
+            'git_url': 'https://github.com/skelhammer/hivematrix-nexus.git',
             'port': 443,
             'visible': False,
             'core_system': True
@@ -37,7 +37,7 @@ class ModuleManager:
         'helm': {
             'name': 'Helm',
             'description': 'Service Manager & Orchestration',
-            'git_url': 'https://github.com/Troy Pound/hivematrix-helm.git',
+            'git_url': 'https://github.com/skelhammer/hivematrix-helm.git',
             'port': 5004,
             'visible': False,
             'core_system': True
@@ -45,7 +45,7 @@ class ModuleManager:
         'codex': {
             'name': 'Codex',
             'description': 'Client, Ticket, and Contact Management',
-            'git_url': 'https://github.com/Troy Pound/hivematrix-codex.git',
+            'git_url': 'https://github.com/skelhammer/hivematrix-codex.git',
             'port': 5010,
             'visible': True,
             'core_system': False
@@ -53,7 +53,7 @@ class ModuleManager:
         'ledger': {
             'name': 'Ledger',
             'description': 'Financial Accounting and Invoicing',
-            'git_url': 'https://github.com/Troy Pound/hivematrix-ledger.git',
+            'git_url': 'https://github.com/skelhammer/hivematrix-ledger.git',
             'port': 5030,
             'visible': True,
             'core_system': False
@@ -61,7 +61,7 @@ class ModuleManager:
         'knowledgetree': {
             'name': 'KnowledgeTree',
             'description': 'Documentation and Knowledge Base',
-            'git_url': 'https://github.com/Troy Pound/hivematrix-knowledgetree.git',
+            'git_url': 'https://github.com/skelhammer/hivematrix-knowledgetree.git',
             'port': 5020,
             'visible': True,
             'core_system': False
@@ -69,7 +69,7 @@ class ModuleManager:
         'template': {
             'name': 'Template',
             'description': 'Template for creating new modules',
-            'git_url': 'https://github.com/Troy Pound/hivematrix-template.git',
+            'git_url': 'https://github.com/skelhammer/hivematrix-template.git',
             'port': 5040,
             'visible': False,
             'core_system': False

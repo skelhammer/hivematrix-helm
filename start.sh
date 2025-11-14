@@ -340,7 +340,7 @@ echo ""
 if [ ! -d "$PARENT_DIR/hivematrix-core" ]; then
     echo -e "${YELLOW}Cloning HiveMatrix Core...${NC}"
     cd "$PARENT_DIR"
-    git clone https://github.com/Troy Pound/hivematrix-core
+    git clone https://github.com/skelhammer/hivematrix-core
     cd "$SCRIPT_DIR"
     echo -e "${GREEN}✓ Core cloned${NC}"
 else
@@ -352,7 +352,7 @@ echo ""
 if [ ! -d "$PARENT_DIR/hivematrix-nexus" ]; then
     echo -e "${YELLOW}Cloning HiveMatrix Nexus...${NC}"
     cd "$PARENT_DIR"
-    git clone https://github.com/Troy Pound/hivematrix-nexus
+    git clone https://github.com/skelhammer/hivematrix-nexus
     cd "$SCRIPT_DIR"
     echo -e "${GREEN}✓ Nexus cloned${NC}"
 else

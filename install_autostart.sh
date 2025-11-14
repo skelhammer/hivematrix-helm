@@ -56,7 +56,7 @@ echo -e "${YELLOW}Generating systemd service file...${NC}"
 sudo tee "$SYSTEM_SERVICE_DIR/hivematrix.service" > /dev/null <<EOF
 [Unit]
 Description=HiveMatrix Orchestration System
-Documentation=https://github.com/Troy Pound/hivematrix-helm
+Documentation=https://github.com/skelhammer/hivematrix-helm
 After=network-online.target postgresql.service
 Wants=network-online.target
 

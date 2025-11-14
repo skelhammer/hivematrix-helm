@@ -1,6 +1,8 @@
 #!/bin/bash
 # Start KnowledgeTree and capture error when we hit it
-cd /home/david/Work/hivematrix/hivematrix-knowledgetree
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PARENT_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$PARENT_DIR/hivematrix-knowledgetree"
 source pyenv/bin/activate
 
 # Start in background, logging to file
@@ -12,7 +14,7 @@ sleep 3
 
 # Test the endpoint
 echo "Testing endpoint..."
-cd /home/david/Work/hivematrix/hivematrix-helm
+cd "$SCRIPT_DIR"
 ./test_with_token.sh
 
 # Give it a moment for the error to be logged

@@ -3,7 +3,7 @@
     "core": {
       "name": "HiveMatrix Core",
       "description": "Authentication & service registry - Required",
-      "git_url": "https://github.com/Troy Pound/hivematrix-core",
+      "git_url": "https://github.com/skelhammer/hivematrix-core",
       "port": 5000,
       "required": true,
       "dependencies": ["postgresql"],
@@ -12,7 +12,7 @@
     "nexus": {
       "name": "HiveMatrix Nexus",
       "description": "Frontend gateway and UI - Required",
-      "git_url": "https://github.com/Troy Pound/hivematrix-nexus",
+      "git_url": "https://github.com/skelhammer/hivematrix-nexus",
       "port": 443,
       "required": true,
       "dependencies": ["core", "keycloak"],
@@ -23,7 +23,7 @@
     "codex": {
       "name": "HiveMatrix Codex",
       "description": "Central data hub for MSP operations",
-      "git_url": "https://github.com/Troy Pound/hivematrix-codex",
+      "git_url": "https://github.com/skelhammer/hivematrix-codex",
       "port": 5010,
       "required": false,
       "dependencies": ["postgresql", "core"],
@@ -32,7 +32,7 @@
     "ledger": {
       "name": "HiveMatrix Ledger",
       "description": "Billing calculations and invoicing",
-      "git_url": "https://github.com/Troy Pound/hivematrix-ledger.git",
+      "git_url": "https://github.com/skelhammer/hivematrix-ledger.git",
       "port": 5030,
       "required": false,
       "dependencies": ["postgresql", "core", "codex"],
@@ -41,7 +41,7 @@
     "knowledgetree": {
       "name": "HiveMatrix KnowledgeTree",
       "description": "Knowledge management with graph database",
-      "git_url": "https://github.com/Troy Pound/hivematrix-knowledgetree",
+      "git_url": "https://github.com/skelhammer/hivematrix-knowledgetree",
       "port": 5020,
       "required": false,
       "dependencies": ["neo4j", "core", "codex"],
@@ -50,7 +50,7 @@
     "template": {
       "name": "HiveMatrix Template",
       "description": "Template for new HiveMatrix services",
-      "git_url": "https://github.com/Troy Pound/hivematrix-template",
+      "git_url": "https://github.com/skelhammer/hivematrix-template",
       "port": 5040,
       "required": false,
       "dependencies": ["core"],
@@ -59,7 +59,7 @@
     "brainhair": {
       "name": "Brain Hair",
       "description": "AI API Gateway with PHI/CJIS filtering for Claude integration",
-      "git_url": "https://github.com/Troy Pound/hivematrix-brainhair",
+      "git_url": "https://github.com/skelhammer/hivematrix-brainhair",
       "port": 5050,
       "required": false,
       "dependencies": ["core", "codex", "knowledgetree"],
@@ -68,7 +68,7 @@
     "archive": {
       "name": "HiveMatrix Archive",
       "description": "Document and file archival system",
-      "git_url": "https://github.com/Troy Pound/hivematrix-archive",
+      "git_url": "https://github.com/skelhammer/hivematrix-archive",
       "port": 5012,
       "required": false,
       "dependencies": ["core", "codex"],
@@ -79,8 +79,8 @@
     "keycloak": {
       "name": "Keycloak",
       "description": "Authentication server",
-      "version": "26.0.5",
-      "download_url": "https://github.com/keycloak/keycloak/releases/download/26.0.5/keycloak-26.0.5.tar.gz",
+      "version": "26.4.0",
+      "download_url": "https://github.com/keycloak/keycloak/releases/download/26.4.0/keycloak-26.4.0.tar.gz",
       "port": 8080,
       "required": true,
       "install_order": 0
