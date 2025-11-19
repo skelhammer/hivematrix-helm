@@ -60,17 +60,33 @@ if [ -f "pyenv/bin/python" ]; then
     source pyenv/bin/activate 2>/dev/null || true
 
     # Auto-detect and stop all hivematrix services
+    SERVICES_TO_STOP=()
     for dir in "$PARENT_DIR"/hivematrix-*; do
         if [ -d "$dir" ]; then
             service_name=$(basename "$dir" | sed 's/^hivematrix-//')
             if [ -f "$dir/run.py" ]; then
-                python cli.py stop $service_name 2>/dev/null || true
+                SERVICES_TO_STOP+=("$service_name")
             fi
         fi
     done
+    
+    # Add keycloak
+    SERVICES_TO_STOP+=("keycloak")
 
-    # Stop keycloak
-    python cli.py stop keycloak 2>/dev/null || true
+    PIDS=()
+    for svc in "${SERVICES_TO_STOP[@]}"; do
+        (
+            echo -e "${YELLOW}Stopping $svc...${NC}"
+            python cli.py stop $svc 2>/dev/null || true
+            echo -e "${GREEN}✓ $svc stopped${NC}"
+        ) &
+        PIDS+=($!)
+    done
+
+    # Wait for all stop commands to finish
+    for pid in "${PIDS[@]}"; do
+        wait $pid
+    done
 fi
 
 sleep 2
