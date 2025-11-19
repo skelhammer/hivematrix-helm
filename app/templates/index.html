@@ -30,13 +30,13 @@
                             {% elif service_name == 'core' %}
                                 <i data-lucide="shield"></i>
                             {% elif service_name == 'nexus' %}
-                                <i data-lucide="network"></i>
+                                <i data-lucide="orbit"></i>
                             {% elif service_name == 'codex' %}
                                 <i data-lucide="database"></i>
                             {% elif service_name == 'brainhair' %}
                                 <i data-lucide="brain"></i>
                             {% elif service_name == 'knowledgetree' %}
-                                <i data-lucide="tree-deciduous"></i>
+                                <i data-lucide="trees"></i>
                             {% elif service_name == 'ledger' %}
                                 <i data-lucide="receipt"></i>
                             {% else %}
@@ -88,17 +88,6 @@
                 <h2 class="card__title">Settings</h2>
             </div>
             <div class="card__body">
-                <div id="security-banner" class="security-banner u-mb-3">
-                    <h3 id="security-banner-title" class="security-banner__title">⚠️ Security Alert</h3>
-                    <p id="security-banner-message"></p>
-                    <a href="#" onclick="navigateTo('/security'); return false;" class="btn btn--danger">
-                        <span class="btn__label">
-                            <i data-lucide="lock" class="btn__icon"></i>
-                            View Security Audit
-                        </span>
-                    </a>
-                </div>
-
                 <div class="dashboard-grid dashboard-grid--three-col">
                     <a href="#" onclick="navigateTo('/security'); return false;" class="dashboard-card">
                         <div class="dashboard-card__icon">
@@ -167,40 +156,8 @@
             window.location.href = basePath + path;
         }
 
-        // Check security status on load
-        function checkSecurityStatus() {
-            const basePath = getBasePath();
-            fetch(`${basePath}/api/security/audit`)
-                .then(response => response.json())
-                .then(data => {
-                    const banner = document.getElementById('security-banner');
-                    const title = document.getElementById('security-banner-title');
-                    const message = document.getElementById('security-banner-message');
-
-                    if (data.exposed_services && data.exposed_services.length > 0) {
-                        banner.classList.add('security-banner--critical', 'is-visible');
-                        title.textContent = '🔴 CRITICAL SECURITY ALERT';
-                        message.textContent = `${data.exposed_services.length} service(s) are exposed to the network and can be accessed externally. This is a security risk!`;
-                    } else if (data.firewall_required && data.firewall_required.length > 0) {
-                        banner.classList.add('is-visible');
-                        title.textContent = '⚠️ Firewall Protection Recommended';
-                        message.textContent = `${data.firewall_required.length} service(s) should be protected by firewall. This is normal for Java apps like Keycloak. Click to apply firewall rules.`;
-                    } else if (data.severity === 'low') {
-                        banner.classList.add('is-visible');
-                        title.textContent = '⚠️ Security Warning';
-                        message.textContent = 'Minor security concerns detected. Review the security audit for details.';
-                    }
-                    // If firewall is active and protecting services, no banner needed
-                })
-                .catch(error => {
-                    console.error('Failed to check security status:', error);
-                });
-        }
-
-        // Run security check on page load
+        // Initialize Lucide icons on page load
         window.addEventListener('load', () => {
-            checkSecurityStatus();
-            // Initialize Lucide icons
             lucide.createIcons();
         });
 
