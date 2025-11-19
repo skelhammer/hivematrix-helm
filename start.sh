@@ -52,28 +52,40 @@ if [ -n "$HELM_PID" ]; then
     wait $HELM_PID 2>/dev/null || true
 fi
 
-# Stop services in reverse order using CLI
+# Stop services in parallel using CLI
 if [ -f "pyenv/bin/python" ]; then
     source pyenv/bin/activate 2>/dev/null || true
 
-    echo -e "${YELLOW}Stopping additional services...${NC}"
+    echo -e "${YELLOW}Stopping all services in parallel...${NC}"
+    
+    SERVICES_TO_STOP=()
     # Auto-detect all hivematrix services
     for dir in "$PARENT_DIR"/hivematrix-*; do
         if [ -d "$dir" ]; then
             service_name=$(basename "$dir" | sed 's/^hivematrix-//')
-            # Skip core, nexus, helm
-            if [[ "$service_name" != "core" ]] && [[ "$service_name" != "nexus" ]] && [[ "$service_name" != "helm" ]]; then
-                if [ -f "$dir/run.py" ]; then
-                    python cli.py stop $service_name 2>/dev/null || echo "  (already stopped)"
-                fi
+            if [ -f "$dir/run.py" ]; then
+                SERVICES_TO_STOP+=("$service_name")
             fi
         fi
     done
+    
+    # Add core services
+    SERVICES_TO_STOP+=("nexus" "core" "keycloak")
 
-    echo -e "${YELLOW}Stopping core services...${NC}"
-    python cli.py stop nexus 2>/dev/null || echo "  (already stopped)"
-    python cli.py stop core 2>/dev/null || echo "  (already stopped)"
-    python cli.py stop keycloak 2>/dev/null || echo "  (already stopped)"
+    PIDS=()
+    for svc in "${SERVICES_TO_STOP[@]}"; do
+        (
+            echo -e "${YELLOW}Stopping $svc...${NC}"
+            python cli.py stop $svc 2>/dev/null || true
+            echo -e "${GREEN}✓ $svc stopped${NC}"
+        ) &
+        PIDS+=($!)
+    done
+
+    # Wait for all stop commands to finish
+    for pid in "${PIDS[@]}"; do
+        wait $pid
+    done
 fi
 
 echo ""
@@ -217,6 +229,16 @@ if ! command -v wget &> /dev/null; then
 echo "Installing wget..."
 $PKG_INSTALL $WGET_PKG
 fi
+
+# Check jq
+echo -e "${YELLOW}Checking jq...${NC}"
+if ! command -v jq &> /dev/null; then
+echo -e "${RED}✗ jq not found${NC}"
+echo "Installing jq..."
+$PKG_INSTALL jq
+fi
+echo -e "${GREEN}✓ jq installed${NC}"
+echo ""
 
 echo -e "${GREEN}✓ All system dependencies ready${NC}"
 echo ""
@@ -862,48 +884,78 @@ if [ ${#ADDITIONAL_SERVICES[@]} -gt 0 ]; then
     # Disable exit on error for service startup (we want to continue even if one fails)
     set +e
 
+    # Get all additional services and their install_order
+    SERVICES_WITH_ORDER=()
     for svc in "${ADDITIONAL_SERVICES[@]}"; do
-        echo -e "${YELLOW}Starting $svc...${NC}"
-
-        # Check if service is already running - restart instead to reload config
-        if python cli.py status $svc 2>&1 | grep -q "Status: running"; then
-            echo "  Service already running - restarting to reload configuration..."
-            START_OUTPUT=$(python cli.py restart $svc 2>&1)
-            START_EXIT_CODE=$?
-        else
-            # Capture both stdout and stderr
-            START_OUTPUT=$(python cli.py start $svc 2>&1)
-            START_EXIT_CODE=$?
-        fi
-
-        if [ $START_EXIT_CODE -eq 0 ]; then
-            # Success - show the output
-            echo "$START_OUTPUT"
-        else
-            # Failed - show detailed error
-            echo -e "${RED}  ✗ Failed to start $svc${NC}"
-            echo -e "${RED}  Error output:${NC}"
-            echo "$START_OUTPUT" | sed 's/^/    /'
-
-            # Check common issues
-            if echo "$START_OUTPUT" | grep -q "not found in configuration"; then
-                echo -e "${YELLOW}  → Service not in services.json - add it to master_services.json and services.json${NC}"
-            elif echo "$START_OUTPUT" | grep -q "already running"; then
-                echo -e "${YELLOW}  → Service already running (this shouldn't happen after restart)${NC}"
-            elif echo "$START_OUTPUT" | grep -q "directory not found"; then
-                echo -e "${YELLOW}  → Service directory missing - run install.sh in hivematrix-$svc${NC}"
-            elif echo "$START_OUTPUT" | grep -q "Python executable not found"; then
-                echo -e "${YELLOW}  → Virtual environment missing - run ./install.sh in hivematrix-$svc${NC}"
-            fi
-
-            # Show log files if they exist
-            if [ -f "logs/$svc.stderr.log" ]; then
-                echo -e "${YELLOW}  → Check logs/\${svc}.stderr.log for details${NC}"
-            fi
-        fi
-
-        sleep 2
+        # Extract install_order from apps_registry.json
+        ORDER=$(jq -r --arg SVC "$svc" '.core_apps[$SVC].install_order // .default_apps[$SVC].install_order // "99"' apps_registry.json)
+        SERVICES_WITH_ORDER+=("$ORDER:$svc")
     done
+
+    # Sort services by install_order
+    IFS=$'\n' SORTED_SERVICES=($(sort -n <<<"${SERVICES_WITH_ORDER[*]}"))
+    unset IFS
+
+    # Start services in batches based on install_order
+    CURRENT_ORDER=""
+    PIDS=()
+    for item in "${SORTED_SERVICES[@]}"; do
+        ORDER=$(echo "$item" | cut -d: -f1)
+        SVC=$(echo "$item" | cut -d: -f2)
+
+        if [ -z "$CURRENT_ORDER" ]; then
+            CURRENT_ORDER=$ORDER
+        fi
+
+        if [ "$ORDER" != "$CURRENT_ORDER" ]; then
+            # Wait for the previous group to finish
+            echo -e "${CYAN}Waiting for services with install_order $CURRENT_ORDER to finish...${NC}"
+            for pid in "${PIDS[@]}"; do
+                wait $pid
+            done
+            echo -e "${GREEN}✓ Services with install_order $CURRENT_ORDER finished starting.${NC}"
+            echo ""
+            # Start a new group
+            PIDS=()
+            CURRENT_ORDER=$ORDER
+        fi
+
+        echo -e "${YELLOW}Starting $SVC (order: $ORDER)...${NC}"
+        (
+            # Check if service is already running - restart instead to reload config
+            if python cli.py status $SVC 2>&1 | grep -q "Status: running"; then
+                echo "  Service $SVC already running - restarting to reload configuration..."
+                START_OUTPUT=$(python cli.py restart $SVC 2>&1)
+                START_EXIT_CODE=$?
+            else
+                # Capture both stdout and stderr
+                START_OUTPUT=$(python cli.py start $SVC 2>&1)
+                START_EXIT_CODE=$?
+            fi
+
+            if [ $START_EXIT_CODE -eq 0 ]; then
+                # Success - show the output
+                echo -e "${GREEN}✓ $SVC started${NC}"
+            else
+                # Failed - show detailed error
+                echo -e "${RED}  ✗ Failed to start $SVC${NC}"
+                echo -e "${RED}  Error output:${NC}"
+                echo "$START_OUTPUT" | sed 's/^/    /'
+            fi
+        ) &
+        PIDS+=($!)
+    done
+
+    # Wait for the last group to finish
+    if [ ${#PIDS[@]} -gt 0 ]; then
+        echo -e "${CYAN}Waiting for services with install_order $CURRENT_ORDER to finish...${NC}"
+        for pid in "${PIDS[@]}"; do
+            wait $pid
+        done
+        echo -e "${GREEN}✓ Services with install_order $CURRENT_ORDER finished starting.${NC}"
+        echo ""
+    fi
+
 
     # Re-enable exit on error
     set -e

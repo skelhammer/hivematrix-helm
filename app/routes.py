@@ -21,22 +21,28 @@ def index():
     # Get all service statuses
     statuses = ServiceManager.get_all_service_statuses()
 
-    # Get recent log statistics
+    # Get recent log statistics for all services in one query
+    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    
+    counts = (
+        LogEntry.query
+        .filter(LogEntry.timestamp >= one_hour_ago)
+        .with_entities(LogEntry.service_name, LogEntry.level, func.count(LogEntry.id))
+        .group_by(LogEntry.service_name, LogEntry.level)
+        .all()
+    )
+
+    # Process the results into the desired format
     log_stats = {}
+    for service_name, level, count in counts:
+        if service_name not in log_stats:
+            log_stats[service_name] = {}
+        log_stats[service_name][level] = count
+
+    # Ensure all services have a log_stats entry, even if empty
     for service_name in statuses.keys():
-        # Count logs by level in last hour
-        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
-
-        counts = (
-            LogEntry.query
-            .filter(LogEntry.service_name == service_name)
-            .filter(LogEntry.timestamp >= one_hour_ago)
-            .with_entities(LogEntry.level, func.count(LogEntry.id))
-            .group_by(LogEntry.level)
-            .all()
-        )
-
-        log_stats[service_name] = {level: count for level, count in counts}
+        if service_name not in log_stats:
+            log_stats[service_name] = {}
 
     return render_template(
         'index.html',
