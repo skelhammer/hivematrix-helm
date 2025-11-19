@@ -4,7 +4,7 @@
 # Usage: ./install <module_name>
 # Example: ./install ledger
 #
-# Supported modules: codex, ledger, knowledgetree, brainhair
+# Supported modules: codex, ledger, knowledgetree, brainhair, beacon, archive
 #
 
 set -e  # Exit on error
@@ -55,7 +55,8 @@ usage() {
     echo "  - codex          : Client/Asset/Ticket management (PostgreSQL)"
     echo "  - ledger         : Billing and invoicing (PostgreSQL)"
     echo "  - knowledgetree  : Knowledge graph and support context (Neo4j)"
-    echo "  - brainhair      : Helpdesk/ticketing (PostgreSQL)"
+    echo "  - brainhair      : AI API Gateway (PostgreSQL)"
+    echo "  - beacon         : Real-time ticket monitoring (uses Codex API)"
     echo "  - archive        : Billing snapshot storage (PostgreSQL)"
     echo ""
     echo "Example:"
@@ -73,7 +74,7 @@ MODULE_NAME="$1"
 
 # Validate module name
 case "$MODULE_NAME" in
-    codex|ledger|knowledgetree|brainhair|archive)
+    codex|ledger|knowledgetree|brainhair|beacon|archive)
         ;;
     *)
         echo -e "${RED}Error: Unknown module '$MODULE_NAME'${NC}"
@@ -163,6 +164,15 @@ echo "==========================================${NC}"
 echo ""
 
 case "$MODULE_NAME" in
+    beacon)
+        # Beacon uses Codex API - no local database needed
+        echo -e "${GREEN}Beacon uses Codex's API for ticket data.${NC}"
+        echo ""
+        echo "Make sure Codex is installed and running with ticket sync enabled."
+        echo ""
+        echo -e "${GREEN}✓ No database setup required${NC}"
+        ;;
+
     codex|ledger|brainhair|archive)
         # PostgreSQL-based modules
         DB_NAME="${MODULE_NAME}_db"

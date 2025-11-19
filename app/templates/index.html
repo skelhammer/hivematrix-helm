@@ -17,7 +17,7 @@
                 <p class="u-mb-3">Welcome, <strong>{{ user.name }}</strong> ({{ user.permission_level }})</p>
 
                 <div class="dashboard-grid dashboard-grid--three-col">
-                    {% set service_order = ['keycloak', 'core', 'nexus', 'helm', 'codex', 'brainhair', 'knowledgetree', 'ledger'] %}
+                    {% set service_order = ['keycloak', 'core', 'nexus', 'helm', 'codex', 'beacon', 'brainhair', 'knowledgetree', 'ledger'] %}
                     {% for service_name in service_order %}
                     {% if service_name in statuses %}
                     {% set status = statuses[service_name] %}
@@ -33,6 +33,8 @@
                                 <i data-lucide="orbit"></i>
                             {% elif service_name == 'codex' %}
                                 <i data-lucide="database"></i>
+                            {% elif service_name == 'beacon' %}
+                                <i data-lucide="radio-tower"></i>
                             {% elif service_name == 'brainhair' %}
                                 <i data-lucide="brain"></i>
                             {% elif service_name == 'knowledgetree' %}
