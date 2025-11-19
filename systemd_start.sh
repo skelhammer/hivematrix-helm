@@ -33,7 +33,7 @@ source pyenv/bin/activate
 echo "Regenerating service configuration..."
 python install_manager.py update-config 2>&1 || echo "WARNING: Failed to update service config"
 
-# Start services using CLI
+# Start core services (must be sequential due to auth dependencies)
 echo "Starting Keycloak..."
 python cli.py start keycloak 2>&1 || echo "(already running)"
 sleep 3
@@ -46,18 +46,28 @@ echo "Starting Nexus..."
 python cli.py start nexus 2>&1 || echo "(already running)"
 sleep 3
 
-# Auto-detect and start additional services
+# Auto-detect and start additional services in parallel
+echo "Starting additional services..."
+
+PIDS=()
 for dir in "$SCRIPT_DIR"/../hivematrix-*; do
     if [ -d "$dir" ]; then
         service_name=$(basename "$dir" | sed 's/^hivematrix-//')
         if [[ "$service_name" != "core" ]] && [[ "$service_name" != "nexus" ]] && [[ "$service_name" != "helm" ]]; then
             if [ -f "$dir/run.py" ]; then
-                echo "Starting $service_name..."
-                python cli.py start "$service_name" 2>&1 || echo "(already running)"
-                sleep 2
+                (
+                    python cli.py start "$service_name" 2>&1 || true
+                    echo -e "${GREEN}✓ $service_name started${NC}"
+                ) &
+                PIDS+=($!)
             fi
         fi
     fi
+done
+
+# Wait for all additional services to start
+for pid in "${PIDS[@]}"; do
+    wait $pid
 done
 
 echo "All services started."
