@@ -73,6 +73,15 @@
       "required": false,
       "dependencies": ["core", "codex"],
       "install_order": 8
+    },
+    "beacon": {
+      "name": "HiveMatrix Beacon",
+      "description": "Real-time ticket monitoring dashboard",
+      "git_url": "https://github.com/skelhammer/hivematrix-beacon",
+      "port": 5001,
+      "required": false,
+      "dependencies": ["core", "codex"],
+      "install_order": 9
     }
   },
   "system_dependencies": {
