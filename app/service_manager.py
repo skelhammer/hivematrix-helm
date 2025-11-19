@@ -233,6 +233,10 @@ class ServiceManager:
                     stderr=stderr_file,
                     start_new_session=True
                 )
+
+                # Close file handles in parent process (subprocess has its own)
+                stdout_file.close()
+                stderr_file.close()
             else:
                 # Standard Python service
                 python_bin = config.get('python_bin', 'pyenv/bin/python')
@@ -301,6 +305,10 @@ class ServiceManager:
                     start_new_session=True  # Detach from parent
                 )
 
+                # Close file handles in parent process (subprocess has its own)
+                stdout_file.close()
+                stderr_file.close()
+
             # Wait a moment to check if it started successfully
             time.sleep(2)
 
@@ -310,7 +318,7 @@ class ServiceManager:
                 try:
                     with open(stderr_path, 'r') as f:
                         stderr_content = f.read()
-                except:
+                except (OSError, IOError):
                     pass
                 return {
                     'success': False,
