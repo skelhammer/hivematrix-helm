@@ -22,6 +22,12 @@ class LogEntry(db.Model):
     hostname = db.Column(db.String(255), nullable=True)
     process_id = db.Column(db.Integer, nullable=True)
 
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        db.Index('idx_log_service_timestamp', 'service_name', 'timestamp'),
+        db.Index('idx_log_level_timestamp', 'level', 'timestamp'),
+    )
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -84,6 +90,11 @@ class ServiceMetric(db.Model):
     metric_name = db.Column(db.String(100), nullable=False)
     metric_value = db.Column(db.Float, nullable=False)
     tags = db.Column(JSONB, nullable=True)
+
+    # Composite index for time-series queries
+    __table_args__ = (
+        db.Index('idx_metric_service_timestamp', 'service_name', 'timestamp'),
+    )
 
     def to_dict(self):
         return {

@@ -48,6 +48,14 @@ else:
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Connection pool configuration for better performance
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 10,
+    'pool_recycle': 3600,  # Recycle connections after 1 hour
+    'pool_pre_ping': True,  # Test connections before use
+    'max_overflow': 5,
+}
+
 # Load services configuration for service discovery and management
 try:
     with open('services.json') as f:
