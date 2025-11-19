@@ -15,7 +15,7 @@ import time
 import requests
 import json
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import current_app
 from extensions import db
 from models import ServiceStatus, ServiceMetric
@@ -334,8 +334,8 @@ class ServiceManager:
             status.status = 'running'
             status.pid = process.pid
             status.port = port
-            status.started_at = datetime.utcnow()
-            status.last_checked = datetime.utcnow()
+            status.started_at = datetime.now(timezone.utc)
+            status.last_checked = datetime.now(timezone.utc)
             db.session.commit()
 
             return {
@@ -391,7 +391,7 @@ class ServiceManager:
             # Update database
             status.status = 'stopped'
             status.pid = None
-            status.last_checked = datetime.utcnow()
+            status.last_checked = datetime.now(timezone.utc)
             db.session.commit()
 
             return {'success': True, 'message': 'Service stopped successfully'}
@@ -551,7 +551,7 @@ class ServiceManager:
             return
 
         # Store metrics
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
 
         cpu_metric = ServiceMetric(
             service_name=service_name,

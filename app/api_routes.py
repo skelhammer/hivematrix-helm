@@ -8,7 +8,7 @@ from app.auth import token_required, admin_required
 from app.service_manager import ServiceManager
 from extensions import db
 from models import LogEntry, ServiceStatus, ServiceMetric
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # ============================================================
 # Service Control API
@@ -51,7 +51,7 @@ def dashboard_status():
     log_stats = {}
     for service_name in statuses.keys():
         # Count logs by level in last hour
-        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
 
         counts = (
             LogEntry.query
@@ -176,7 +176,7 @@ def ingest_logs():
                 user_id=log_data.get('user_id'),
                 hostname=log_data.get('hostname'),
                 process_id=log_data.get('process_id'),
-                timestamp=log_data.get('timestamp') or datetime.utcnow()
+                timestamp=log_data.get('timestamp') or datetime.now(timezone.utc)
             )
             db.session.add(log_entry)
             ingested += 1
@@ -300,7 +300,7 @@ def get_service_metrics(service_name):
         query = query.filter_by(metric_name=metric_name)
 
     # Time range - default to last 24 hours
-    end_time = datetime.utcnow()
+    end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(hours=24)
 
     start_param = request.args.get('start_time')
@@ -746,5 +746,5 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'service': 'helm',
-        'timestamp': datetime.utcnow().isoformat()
+        'timestamp': datetime.now(timezone.utc).isoformat()
     })

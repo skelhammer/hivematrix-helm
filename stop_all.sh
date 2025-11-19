@@ -1,10 +1,8 @@
 #!/bin/bash
 #
 # HiveMatrix Helm - Stop All Services Script
-# Cleanly stops Helm, Nexus, Core, and Keycloak
+# Cleanly stops all HiveMatrix services in parallel
 #
-
-set -e  # Exit on error
 
 # Colors for output
 RED='\033[0;31m'
@@ -21,6 +19,7 @@ echo ""
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$SCRIPT_DIR"
 
 # Activate virtual environment
@@ -31,24 +30,42 @@ fi
 
 source pyenv/bin/activate
 
-echo -e "${BLUE}Stopping services in reverse order...${NC}"
+echo -e "${BLUE}Stopping all services in parallel...${NC}"
 echo ""
 
-# Stop Nexus
-echo -e "${YELLOW}[1/3] Stopping Nexus...${NC}"
-python cli.py stop nexus 2>/dev/null || echo "  (Nexus may not be running)"
+# Use associative array to avoid duplicates
+declare -A SERVICES_MAP
 
-echo ""
+# Auto-detect all hivematrix services
+for dir in "$PARENT_DIR"/hivematrix-*; do
+    if [ -d "$dir" ]; then
+        service_name=$(basename "$dir" | sed 's/^hivematrix-//')
+        if [ -f "$dir/run.py" ]; then
+            SERVICES_MAP["$service_name"]=1
+        fi
+    fi
+done
 
-# Stop Core
-echo -e "${YELLOW}[2/3] Stopping Core...${NC}"
-python cli.py stop core 2>/dev/null || echo "  (Core may not be running)"
+# Add keycloak (not auto-detected since it's not hivematrix-*)
+SERVICES_MAP["keycloak"]=1
 
-echo ""
+# Convert to array
+SERVICES_TO_STOP=("${!SERVICES_MAP[@]}")
 
-# Stop Keycloak
-echo -e "${YELLOW}[3/3] Stopping Keycloak...${NC}"
-python cli.py stop keycloak 2>/dev/null || echo "  (Keycloak may not be running)"
+# Stop all services in parallel
+PIDS=()
+for svc in "${SERVICES_TO_STOP[@]}"; do
+    (
+        python cli.py stop $svc 2>/dev/null || true
+        echo -e "${GREEN}✓ $svc stopped${NC}"
+    ) &
+    PIDS+=($!)
+done
+
+# Wait for all stop commands to finish
+for pid in "${PIDS[@]}"; do
+    wait $pid
+done
 
 echo ""
 echo -e "${GREEN}✓ All services stopped${NC}"

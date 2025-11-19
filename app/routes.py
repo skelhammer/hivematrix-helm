@@ -8,7 +8,7 @@ from app.auth import token_required, admin_required
 from app.service_manager import ServiceManager
 from app.module_manager import ModuleManager
 from models import LogEntry, ServiceStatus
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import func
 
 @app.route('/')
@@ -22,7 +22,7 @@ def index():
     statuses = ServiceManager.get_all_service_statuses()
 
     # Get recent log statistics for all services in one query
-    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
     
     counts = (
         LogEntry.query
@@ -136,7 +136,7 @@ def metrics_view():
             if isinstance(started_at, str):
                 started_at = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             delta = now - started_at.replace(tzinfo=None)
             total_seconds = int(delta.total_seconds())
 
@@ -163,7 +163,7 @@ def metrics_view():
     log_stats = {}
     for service_name in statuses.keys():
         # Count logs by level in last hour
-        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
 
         counts = (
             LogEntry.query
