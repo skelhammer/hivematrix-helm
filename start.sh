@@ -362,27 +362,41 @@ echo "  Step 4: Clone Required Components"
 echo "================================================================"
 echo ""
 
-# Clone Core
+# Clone Core and Nexus in parallel if needed
+CLONE_PIDS=()
+NEED_CLONE=false
+
 if [ ! -d "$PARENT_DIR/hivematrix-core" ]; then
+    NEED_CLONE=true
+    (
+        cd "$PARENT_DIR"
+        git clone https://github.com/skelhammer/hivematrix-core 2>&1
+        echo -e "${GREEN}✓ Core cloned${NC}"
+    ) &
+    CLONE_PIDS+=($!)
     echo -e "${YELLOW}Cloning HiveMatrix Core...${NC}"
-    cd "$PARENT_DIR"
-    git clone https://github.com/skelhammer/hivematrix-core
-    cd "$SCRIPT_DIR"
-    echo -e "${GREEN}✓ Core cloned${NC}"
 else
     echo -e "${GREEN}✓ Core already exists${NC}"
 fi
-echo ""
 
-# Clone Nexus
 if [ ! -d "$PARENT_DIR/hivematrix-nexus" ]; then
+    NEED_CLONE=true
+    (
+        cd "$PARENT_DIR"
+        git clone https://github.com/skelhammer/hivematrix-nexus 2>&1
+        echo -e "${GREEN}✓ Nexus cloned${NC}"
+    ) &
+    CLONE_PIDS+=($!)
     echo -e "${YELLOW}Cloning HiveMatrix Nexus...${NC}"
-    cd "$PARENT_DIR"
-    git clone https://github.com/skelhammer/hivematrix-nexus
-    cd "$SCRIPT_DIR"
-    echo -e "${GREEN}✓ Nexus cloned${NC}"
 else
     echo -e "${GREEN}✓ Nexus already exists${NC}"
+fi
+
+# Wait for clones to complete
+if [ "$NEED_CLONE" = true ]; then
+    for pid in "${CLONE_PIDS[@]}"; do
+        wait $pid
+    done
 fi
 echo ""
 
