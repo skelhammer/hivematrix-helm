@@ -92,7 +92,7 @@ if logs_dir.exists():
     start_log_watcher_thread()
 
 # Add custom Jinja2 filters
-from datetime import datetime
+from datetime import datetime, timezone
 
 @app.template_filter('format_uptime')
 def format_uptime(timestamp_str):
@@ -108,8 +108,8 @@ def format_uptime(timestamp_str):
             started_at = timestamp_str
 
         # Calculate uptime
-        now = datetime.utcnow()
-        delta = now - started_at.replace(tzinfo=None)
+        now = datetime.now(timezone.utc)
+        delta = now - started_at.replace(tzinfo=timezone.utc)
 
         # Format based on duration
         total_seconds = int(delta.total_seconds())

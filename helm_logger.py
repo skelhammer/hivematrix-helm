@@ -15,7 +15,7 @@ Usage:
 import requests
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional, Any
 import socket
 import os
@@ -62,7 +62,7 @@ class HelmLogger:
         """Internal logging method"""
 
         log_entry = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'level': level,
             'message': message,
             'context': context,
