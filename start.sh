@@ -57,25 +57,29 @@ if [ -f "pyenv/bin/python" ]; then
     source pyenv/bin/activate 2>/dev/null || true
 
     echo -e "${YELLOW}Stopping all services in parallel...${NC}"
-    
-    SERVICES_TO_STOP=()
+
+    # Use associative array to avoid duplicates
+    declare -A SERVICES_MAP
+
     # Auto-detect all hivematrix services
     for dir in "$PARENT_DIR"/hivematrix-*; do
         if [ -d "$dir" ]; then
             service_name=$(basename "$dir" | sed 's/^hivematrix-//')
             if [ -f "$dir/run.py" ]; then
-                SERVICES_TO_STOP+=("$service_name")
+                SERVICES_MAP["$service_name"]=1
             fi
         fi
     done
-    
-    # Add core services
-    SERVICES_TO_STOP+=("nexus" "core" "keycloak")
+
+    # Add keycloak (not auto-detected since it's not hivematrix-*)
+    SERVICES_MAP["keycloak"]=1
+
+    # Convert to array
+    SERVICES_TO_STOP=("${!SERVICES_MAP[@]}")
 
     PIDS=()
     for svc in "${SERVICES_TO_STOP[@]}"; do
         (
-            echo -e "${YELLOW}Stopping $svc...${NC}"
             python cli.py stop $svc 2>/dev/null || true
             echo -e "${GREEN}✓ $svc stopped${NC}"
         ) &
