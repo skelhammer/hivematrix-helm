@@ -354,7 +354,7 @@ def get_keycloak_admin_token():
         'username': admin_user,
         'password': admin_pass,
         'grant_type': 'password'
-    })
+    }, timeout=10)
 
     if response.status_code == 200:
         return response.json().get('access_token')
@@ -375,7 +375,7 @@ def list_keycloak_users():
     users_url = f"{keycloak_url}/admin/realms/{realm}/users"
     headers = {'Authorization': f'Bearer {token}'}
 
-    response = http_requests.get(users_url, headers=headers)
+    response = http_requests.get(users_url, headers=headers, timeout=10)
 
     if response.status_code == 200:
         return jsonify({'users': response.json()})
@@ -409,7 +409,7 @@ def create_keycloak_user():
         'emailVerified': data.get('emailVerified', False)
     }
 
-    response = http_requests.post(users_url, json=user_data, headers=headers)
+    response = http_requests.post(users_url, json=user_data, headers=headers, timeout=10)
 
     if response.status_code == 201:
         return {'success': True, 'message': 'User created successfully'}, 201
@@ -434,7 +434,7 @@ def update_keycloak_user(user_id):
     user_url = f"{keycloak_url}/admin/realms/{realm}/users/{user_id}"
     headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
 
-    response = http_requests.put(user_url, json=data, headers=headers)
+    response = http_requests.put(user_url, json=data, headers=headers, timeout=10)
 
     if response.status_code == 204:
         return {'success': True, 'message': 'User updated successfully'}
@@ -456,7 +456,7 @@ def delete_keycloak_user(user_id):
     user_url = f"{keycloak_url}/admin/realms/{realm}/users/{user_id}"
     headers = {'Authorization': f'Bearer {token}'}
 
-    user_response = http_requests.get(user_url, headers=headers)
+    user_response = http_requests.get(user_url, headers=headers, timeout=10)
     if user_response.status_code == 200:
         user_data = user_response.json()
         username = user_data.get('username', '').lower()
@@ -465,7 +465,7 @@ def delete_keycloak_user(user_id):
         if username == 'admin':
             return {'error': 'Cannot delete the admin user'}, 403
 
-    response = http_requests.delete(user_url, headers=headers)
+    response = http_requests.delete(user_url, headers=headers, timeout=10)
 
     if response.status_code == 204:
         return {'success': True, 'message': 'User deleted successfully'}
@@ -499,7 +499,7 @@ def reset_user_password(user_id):
         'temporary': temporary
     }
 
-    response = http_requests.put(password_url, json=password_data, headers=headers)
+    response = http_requests.put(password_url, json=password_data, headers=headers, timeout=10)
 
     if response.status_code == 204:
         return {'success': True, 'message': 'Password reset successfully'}
@@ -520,7 +520,7 @@ def list_keycloak_groups():
     groups_url = f"{keycloak_url}/admin/realms/{realm}/groups"
     headers = {'Authorization': f'Bearer {token}'}
 
-    response = http_requests.get(groups_url, headers=headers)
+    response = http_requests.get(groups_url, headers=headers, timeout=10)
 
     if response.status_code == 200:
         return jsonify({'groups': response.json()})
@@ -541,7 +541,7 @@ def get_user_groups(user_id):
     groups_url = f"{keycloak_url}/admin/realms/{realm}/users/{user_id}/groups"
     headers = {'Authorization': f'Bearer {token}'}
 
-    response = http_requests.get(groups_url, headers=headers)
+    response = http_requests.get(groups_url, headers=headers, timeout=10)
 
     if response.status_code == 200:
         return jsonify({'groups': response.json()})
@@ -570,7 +570,7 @@ def update_user_groups(user_id):
 
     # Get current groups
     groups_url = f"{keycloak_url}/admin/realms/{realm}/users/{user_id}/groups"
-    current_response = http_requests.get(groups_url, headers=headers)
+    current_response = http_requests.get(groups_url, headers=headers, timeout=10)
 
     if current_response.status_code != 200:
         return {'error': 'Failed to fetch current user groups'}, current_response.status_code
@@ -579,7 +579,7 @@ def update_user_groups(user_id):
 
     # Get all available groups (to find IDs for desired groups)
     all_groups_url = f"{keycloak_url}/admin/realms/{realm}/groups"
-    all_groups_response = http_requests.get(all_groups_url, headers=headers)
+    all_groups_response = http_requests.get(all_groups_url, headers=headers, timeout=10)
 
     if all_groups_response.status_code != 200:
         return {'error': 'Failed to fetch available groups'}, all_groups_response.status_code
@@ -597,7 +597,7 @@ def update_user_groups(user_id):
         if group_name in current_groups:
             group_id = current_groups[group_name]
             remove_url = f"{keycloak_url}/admin/realms/{realm}/users/{user_id}/groups/{group_id}"
-            remove_response = http_requests.delete(remove_url, headers=headers)
+            remove_response = http_requests.delete(remove_url, headers=headers, timeout=10)
 
             if remove_response.status_code != 204:
                 errors.append(f'Failed to remove from group {group_name}')
@@ -607,7 +607,7 @@ def update_user_groups(user_id):
         if group_name in available_groups:
             group_id = available_groups[group_name]
             add_url = f"{keycloak_url}/admin/realms/{realm}/users/{user_id}/groups/{group_id}"
-            add_response = http_requests.put(add_url, headers=headers)
+            add_response = http_requests.put(add_url, headers=headers, timeout=10)
 
             if add_response.status_code != 204:
                 errors.append(f'Failed to add to group {group_name}')
@@ -645,7 +645,7 @@ def add_user_to_group(user_id, group_id):
     group_url = f"{keycloak_url}/admin/realms/{realm}/users/{user_id}/groups/{group_id}"
     headers = {'Authorization': f'Bearer {token}'}
 
-    response = http_requests.put(group_url, headers=headers)
+    response = http_requests.put(group_url, headers=headers, timeout=10)
 
     if response.status_code == 204:
         return {'success': True, 'message': 'User added to group'}
@@ -666,7 +666,7 @@ def remove_user_from_group(user_id, group_id):
     group_url = f"{keycloak_url}/admin/realms/{realm}/users/{user_id}/groups/{group_id}"
     headers = {'Authorization': f'Bearer {token}'}
 
-    response = http_requests.delete(group_url, headers=headers)
+    response = http_requests.delete(group_url, headers=headers, timeout=10)
 
     if response.status_code == 204:
         return {'success': True, 'message': 'User removed from group'}
