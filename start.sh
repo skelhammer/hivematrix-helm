@@ -1106,5 +1106,9 @@ echo -e "${YELLOW}Press Ctrl+C to stop all services${NC}"
 echo "================================================================"
 echo ""
 
-# Wait for Helm process
-wait $HELM_PID
+# Wait indefinitely until Ctrl+C
+# Using tail -f /dev/null keeps the script running
+# The trap will handle cleanup on SIGINT/SIGTERM
+tail -f /dev/null &
+TAIL_PID=$!
+wait $TAIL_PID
