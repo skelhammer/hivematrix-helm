@@ -3,6 +3,18 @@ from app.service_manager import ServiceManager
 import requests
 import sys
 import time
+import os
+import json
+
+def get_debug_mode():
+    """Read environment from master_config.json to determine debug mode"""
+    config_path = os.path.join(os.path.dirname(__file__), 'instance', 'configs', 'master_config.json')
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+            return config.get('system', {}).get('environment', 'production') == 'development'
+    except (FileNotFoundError, json.JSONDecodeError):
+        return False  # Default to production (debug=False) if config not found
 
 def check_required_services():
     """Check if required services (Keycloak, Core, Nexus) are running"""
@@ -121,4 +133,5 @@ if __name__ == '__main__':
 
     # Security: Bind to localhost only - Helm should not be exposed externally
     # Access via Nexus proxy at https://localhost:443/helm
-    app.run(host='127.0.0.1', port=5004, debug=True)
+    debug = get_debug_mode()
+    app.run(host='127.0.0.1', port=5004, debug=debug)

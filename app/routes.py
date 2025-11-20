@@ -9,6 +9,8 @@ from app.service_manager import ServiceManager
 from models import LogEntry, ServiceStatus
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import func
+import json
+import os
 
 @app.route('/')
 @token_required
@@ -235,3 +237,59 @@ def security_dashboard():
         'security.html',
         user=g.user
     )
+
+
+@app.route('/settings')
+@admin_required
+def settings():
+    """System settings page"""
+    if g.is_service_call:
+        return {'error': 'This endpoint is for users only'}, 403
+
+    # Load master config
+    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'configs', 'master_config.json')
+    config = {}
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        flash('Could not load master configuration', 'error')
+
+    return render_template(
+        'settings.html',
+        user=g.user,
+        config=config
+    )
+
+
+@app.route('/settings/save', methods=['POST'])
+@admin_required
+def save_settings():
+    """Save system settings"""
+    if g.is_service_call:
+        return {'error': 'This endpoint is for users only'}, 403
+
+    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'configs', 'master_config.json')
+
+    try:
+        # Load existing config
+        with open(config_path) as f:
+            config = json.load(f)
+
+        # Update settings from form
+        if 'environment' in request.form:
+            config['system']['environment'] = request.form['environment']
+        if 'hostname' in request.form:
+            config['system']['hostname'] = request.form['hostname']
+        if 'log_level' in request.form:
+            config['system']['log_level'] = request.form['log_level']
+
+        # Save config
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+
+        flash('Settings saved successfully. Restart services for changes to take effect.', 'success')
+    except Exception as e:
+        flash(f'Error saving settings: {str(e)}', 'error')
+
+    return redirect(url_for('settings'))

@@ -118,6 +118,15 @@
                         </div>
                     </a>
 
+                    <a href="#" onclick="navigateTo('/settings'); return false;" class="dashboard-card">
+                        <div class="dashboard-card__icon">
+                            <i data-lucide="sliders"></i>
+                        </div>
+                        <div class="dashboard-card__content">
+                            <h2 class="dashboard-card__title">System Settings</h2>
+                        </div>
+                    </a>
+
                     {% if user.permission_level == 'admin' %}
                     <a href="#" onclick="navigateTo('/users'); return false;" class="dashboard-card">
                         <div class="dashboard-card__icon">
