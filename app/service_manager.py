@@ -254,6 +254,11 @@ class ServiceManager:
                 # Set environment for the service
                 env = os.environ.copy()
 
+                # Remove Werkzeug-specific variables that could cause issues
+                # These are set by Flask's reloader and should not be inherited
+                for key in ['WERKZEUG_SERVER_FD', 'WERKZEUG_RUN_MAIN']:
+                    env.pop(key, None)
+
                 # Check if we're in dev mode from start.sh
                 dev_mode = os.environ.get('HIVEMATRIX_DEV_MODE', 'false').lower() == 'true'
 
@@ -334,8 +339,8 @@ class ServiceManager:
             status.status = 'running'
             status.pid = process.pid
             status.port = port
-            status.started_at = datetime.now(timezone.utc)
-            status.last_checked = datetime.now(timezone.utc)
+            status.started_at = datetime.utcnow()
+            status.last_checked = datetime.utcnow()
             db.session.commit()
 
             return {
@@ -391,7 +396,7 @@ class ServiceManager:
             # Update database
             status.status = 'stopped'
             status.pid = None
-            status.last_checked = datetime.now(timezone.utc)
+            status.last_checked = datetime.utcnow()
             db.session.commit()
 
             return {'success': True, 'message': 'Service stopped successfully'}
@@ -443,6 +448,9 @@ class ServiceManager:
                     result.update(proc_info)
                     result['status'] = 'running'
                     result['pid'] = pid
+                    # Also include started_at from database if available
+                    if status and status.started_at:
+                        result['started_at'] = status.started_at.isoformat()
                     found_running_process = True
 
         # If not found by port scan, check database status (for services managed by Helm)
@@ -551,7 +559,7 @@ class ServiceManager:
             return
 
         # Store metrics
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.utcnow()
 
         cpu_metric = ServiceMetric(
             service_name=service_name,

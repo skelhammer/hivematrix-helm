@@ -8,6 +8,15 @@ load_dotenv('.flaskenv')
 
 app = Flask(__name__, instance_relative_config=True)
 
+# Set secret key for session management (required for flash messages)
+import secrets
+app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
+
+# Session configuration for working behind proxy
+app.config['SESSION_COOKIE_NAME'] = 'helm_session'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 # Configure logging level from environment
 import logging
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
@@ -104,6 +113,24 @@ def inject_version():
         'app_service_name': VERSION_SERVICE_NAME
     }
 
+@app.template_filter('format_datetime')
+def format_datetime(timestamp_str):
+    """Convert ISO timestamp to human-readable format"""
+    if not timestamp_str:
+        return '-'
+
+    try:
+        # Parse ISO format timestamp
+        if isinstance(timestamp_str, str):
+            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        else:
+            dt = timestamp_str
+
+        # Format nicely: "Nov 19, 2025 10:09 PM"
+        return dt.strftime('%b %d, %Y %I:%M %p')
+    except Exception as e:
+        return str(timestamp_str)
+
 @app.template_filter('format_uptime')
 def format_uptime(timestamp_str):
     """Convert ISO timestamp to human-readable uptime"""
@@ -117,14 +144,21 @@ def format_uptime(timestamp_str):
         else:
             started_at = timestamp_str
 
-        # Calculate uptime
+        # Calculate uptime using local time for comparison
+        # Database stores UTC, so we compare with UTC now
+        if started_at.tzinfo is None:
+            # Naive datetime from database - assume it's UTC
+            started_at = started_at.replace(tzinfo=timezone.utc)
+
         now = datetime.now(timezone.utc)
-        delta = now - started_at.replace(tzinfo=timezone.utc)
+        delta = now - started_at
 
         # Format based on duration
         total_seconds = int(delta.total_seconds())
 
-        if total_seconds < 60:
+        if total_seconds < 0:
+            return '-'
+        elif total_seconds < 60:
             return f"{total_seconds}s"
         elif total_seconds < 3600:
             minutes = total_seconds // 60
