@@ -356,13 +356,13 @@ EOF
 fi
 echo ""
 
-# === CLONE CORE AND NEXUS ===
+# === CLONE CORE, NEXUS, AND CODEX ===
 echo "================================================================"
 echo "  Step 4: Clone Required Components"
 echo "================================================================"
 echo ""
 
-# Clone Core and Nexus in parallel if needed
+# Clone Core, Nexus, and Codex in parallel if needed
 CLONE_PIDS=()
 NEED_CLONE=false
 
@@ -392,6 +392,19 @@ else
     echo -e "${GREEN}✓ Nexus already exists${NC}"
 fi
 
+if [ ! -d "$PARENT_DIR/hivematrix-codex" ]; then
+    NEED_CLONE=true
+    (
+        cd "$PARENT_DIR"
+        git clone https://github.com/skelhammer/hivematrix-codex 2>&1
+        echo -e "${GREEN}✓ Codex cloned${NC}"
+    ) &
+    CLONE_PIDS+=($!)
+    echo -e "${YELLOW}Cloning HiveMatrix Codex...${NC}"
+else
+    echo -e "${GREEN}✓ Codex already exists${NC}"
+fi
+
 # Wait for clones to complete
 if [ "$NEED_CLONE" = true ]; then
     for pid in "${CLONE_PIDS[@]}"; do
@@ -400,9 +413,9 @@ if [ "$NEED_CLONE" = true ]; then
 fi
 echo ""
 
-# === INSTALL CORE AND NEXUS ===
+# === INSTALL CORE, NEXUS, AND CODEX ===
 echo "================================================================"
-echo "  Step 5: Install Core and Nexus"
+echo "  Step 5: Install Core, Nexus, and Codex"
 echo "================================================================"
 echo ""
 
@@ -454,6 +467,26 @@ if [ ! -d "$PARENT_DIR/hivematrix-nexus/pyenv" ]; then
     echo -e "${GREEN}✓ Nexus installed${NC}"
 else
     echo -e "${GREEN}✓ Nexus already installed${NC}"
+fi
+echo ""
+
+# Install Codex
+if [ ! -d "$PARENT_DIR/hivematrix-codex/pyenv" ]; then
+    echo -e "${YELLOW}Installing Codex...${NC}"
+    cd "$PARENT_DIR/hivematrix-codex"
+    if [ -f "install.sh" ]; then
+        chmod +x install.sh
+        ./install.sh
+    else
+        python3 -m venv pyenv
+        source pyenv/bin/activate
+        pip install --upgrade pip -q
+        pip install -r requirements.txt -q
+    fi
+    cd "$SCRIPT_DIR"
+    echo -e "${GREEN}✓ Codex installed${NC}"
+else
+    echo -e "${GREEN}✓ Codex already installed${NC}"
 fi
 cd "$SCRIPT_DIR"
 
@@ -536,6 +569,53 @@ if [ ! -f "instance/helm.conf" ]; then
     echo -e "${GREEN}✓ Helm database created${NC}"
 else
     echo -e "${GREEN}✓ Helm database already exists${NC}"
+fi
+echo ""
+
+# Initialize Codex database
+if [ ! -f "$PARENT_DIR/hivematrix-codex/instance/codex.conf" ]; then
+    echo -e "${YELLOW}Setting up Codex database...${NC}"
+
+    # Generate secure random password for Codex database
+    CODEX_DB_PASS=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-24)
+
+    # Create database and user
+    echo "  Creating database and user..."
+    sudo -u postgres psql <<EOF
+CREATE DATABASE codex_db;
+CREATE USER codex_user WITH PASSWORD '$CODEX_DB_PASS';
+GRANT ALL PRIVILEGES ON DATABASE codex_db TO codex_user;
+EOF
+
+    # Grant schema permissions (PostgreSQL 15+)
+    sudo -u postgres psql -d codex_db <<EOF
+GRANT ALL ON SCHEMA public TO codex_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO codex_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO codex_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO codex_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO codex_user;
+EOF
+
+    # Initialize Codex schema using headless mode
+    cd "$PARENT_DIR/hivematrix-codex"
+    source pyenv/bin/activate
+    python init_db.py --headless --db-host localhost --db-port 5432 --db-name codex_db --db-user codex_user --db-password "$CODEX_DB_PASS"
+    deactivate
+    cd "$SCRIPT_DIR"
+    source pyenv/bin/activate
+    echo -e "${GREEN}✓ Codex database created${NC}"
+    echo ""
+    echo -e "${BLUE}Codex Database Credentials:${NC}"
+    echo "  Database: codex_db"
+    echo "  User:     codex_user"
+    echo "  Password: $CODEX_DB_PASS"
+    echo ""
+    echo -e "${YELLOW}  Saved to: $PARENT_DIR/hivematrix-codex/instance/codex.conf${NC}"
+    echo -e "${YELLOW}  To retrieve later: cd hivematrix-codex && ./get_db_credentials.sh${NC}"
+    echo ""
+else
+    echo -e "${GREEN}✓ Codex database already exists${NC}"
+    echo -e "${BLUE}  To view credentials: cd $PARENT_DIR/hivematrix-codex && ./get_db_credentials.sh${NC}"
 fi
 echo ""
 
