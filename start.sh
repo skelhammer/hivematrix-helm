@@ -488,26 +488,30 @@ if [ -f "$NEXUS_VENV_PYTHON" ]; then
     if echo "$CURRENT_CAP" | grep -q "cap_net_bind_service"; then
         echo -e "${GREEN}  ✓ Port 443 binding already enabled${NC}"
     else
-        # Check if we need sudo
-        if ! sudo -n true 2>/dev/null; then
-            echo -e "${YELLOW}  Sudo password required to enable port 443 binding...${NC}"
-        fi
-        # Grant capability to bind privileged ports on the real binary
-        if sudo setcap 'cap_net_bind_service=+ep' "$REAL_PYTHON" 2>/dev/null; then
-            echo -e "${GREEN}  ✓ setcap applied to $REAL_PYTHON${NC}"
+        # Only attempt setcap if sudo is available without prompting
+        # This prevents blocking when running in the background
+        if sudo -n true 2>/dev/null; then
+            # Grant capability to bind privileged ports on the real binary
+            if sudo -n setcap 'cap_net_bind_service=+ep' "$REAL_PYTHON" 2>/dev/null; then
+                echo -e "${GREEN}  ✓ setcap applied to $REAL_PYTHON${NC}"
 
-            # Test if it actually works
-            echo -e "${YELLOW}  Testing port 443 binding...${NC}"
-            cd "$PARENT_DIR/hivematrix-nexus"
-            if timeout 3 "$REAL_PYTHON" -c "import socket; s=socket.socket(); s.bind(('0.0.0.0', 443)); s.close(); print('OK')" 2>/dev/null | grep -q OK; then
-                echo -e "${GREEN}  ✓ Port 443 binding test successful${NC}"
+                # Test if it actually works
+                echo -e "${YELLOW}  Testing port 443 binding...${NC}"
+                cd "$PARENT_DIR/hivematrix-nexus"
+                if timeout 3 "$REAL_PYTHON" -c "import socket; s=socket.socket(); s.bind(('0.0.0.0', 443)); s.close(); print('OK')" 2>/dev/null | grep -q OK; then
+                    echo -e "${GREEN}  ✓ Port 443 binding test successful${NC}"
+                else
+                    echo -e "${YELLOW}  ✗ Port 443 binding test failed${NC}"
+                    echo -e "${YELLOW}  Nexus will fall back to port 8000${NC}"
+                fi
+                cd "$SCRIPT_DIR"
             else
-                echo -e "${YELLOW}  ✗ Port 443 binding test failed${NC}"
-                echo -e "${YELLOW}  Nexus will fall back to port 8000${NC}"
+                echo -e "${YELLOW}  ✗ Could not set capabilities (setcap failed)${NC}"
+                echo -e "${YELLOW}  Nexus will run on port 8000 instead${NC}"
             fi
-            cd "$SCRIPT_DIR"
         else
-            echo -e "${YELLOW}  ✗ Could not set capabilities (setcap failed)${NC}"
+            echo -e "${YELLOW}  ⚠ Port 443 binding requires sudo (not available)${NC}"
+            echo -e "${YELLOW}  To enable port 443, run: sudo setcap 'cap_net_bind_service=+ep' $REAL_PYTHON${NC}"
             echo -e "${YELLOW}  Nexus will run on port 8000 instead${NC}"
         fi
     fi

@@ -16,11 +16,12 @@ class SecurityAuditor:
     # Services that should ONLY be accessible on localhost
     LOCALHOST_ONLY_SERVICES = {
         'core': 5000,
+        'beacon': 5001,
         'helm': 5004,
         'codex': 5010,
+        'knowledgetree': 5020,
         'ledger': 5030,
         'template': 5040,
-        'knowledgetree': 5020,
     }
 
     # Services that can be exposed but MUST be protected by firewall
@@ -51,10 +52,10 @@ class SecurityAuditor:
             'protected_ports': []
         }
 
-        # Check UFW
+        # Check UFW (use sudo -n to avoid prompting for password)
         try:
             result = subprocess.run(
-                ['sudo', 'ufw', 'status'],
+                ['sudo', '-n', 'ufw', 'status'],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -83,10 +84,10 @@ class SecurityAuditor:
         except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
             pass
 
-        # Check iptables
+        # Check iptables (use sudo -n to avoid prompting for password)
         try:
             result = subprocess.run(
-                ['sudo', 'iptables', '-L', 'INPUT', '-n'],
+                ['sudo', '-n', 'iptables', '-L', 'INPUT', '-n'],
                 capture_output=True,
                 text=True,
                 check=True,
