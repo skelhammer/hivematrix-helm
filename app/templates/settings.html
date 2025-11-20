@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Helm</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="card u-mb-3">
+        <div class="card__header">
+            <h1 class="card__title">System Settings</h1>
+            <div class="card__header-actions">
+                <button class="btn" onclick="window.location.href='{{ url_for('index') }}'">
+                    <span class="btn__label">
+                        <i data-lucide="arrow-left" class="btn__icon"></i>
+                        Back to Dashboard
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="u-mb-3">
+            {% for category, message in messages %}
+                <div class="alert alert--{{ 'success' if category == 'success' else 'error' }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('save_settings') }}" method="POST">
+        <div class="card u-mb-3">
+            <div class="card__header">
+                <h2 class="card__title">
+                    <i data-lucide="settings" class="btn__icon"></i>
+                    Environment
+                </h2>
+            </div>
+            <div class="card__body">
+                <div class="form-group u-mb-3">
+                    <label class="form-group__label">Environment Mode</label>
+                    <div class="u-flex u-flex-gap-2">
+                        <label class="u-flex u-items-center u-flex-gap-1">
+                            <input type="radio" name="environment" value="production"
+                                   {{ 'checked' if config.get('system', {}).get('environment') == 'production' else '' }}>
+                            <span>Production</span>
+                        </label>
+                        <label class="u-flex u-items-center u-flex-gap-1">
+                            <input type="radio" name="environment" value="development"
+                                   {{ 'checked' if config.get('system', {}).get('environment') == 'development' else '' }}>
+                            <span>Development</span>
+                        </label>
+                    </div>
+                    <small class="u-text-muted">
+                        Development mode enables debug features and auto-reloading of templates.
+                        <strong>Do not use in production.</strong>
+                    </small>
+                </div>
+
+                <div class="form-group u-mb-3">
+                    <label for="hostname" class="form-group__label">Hostname / IP Address</label>
+                    <input type="text" id="hostname" name="hostname" class="form-group__input"
+                           value="{{ config.get('system', {}).get('hostname', 'localhost') }}">
+                    <small class="u-text-muted">Public hostname or IP address for accessing HiveMatrix.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="log_level" class="form-group__label">Log Level</label>
+                    <select id="log_level" name="log_level" class="form-group__select">
+                        {% set current_level = config.get('system', {}).get('log_level', 'INFO') %}
+                        <option value="DEBUG" {{ 'selected' if current_level == 'DEBUG' else '' }}>DEBUG</option>
+                        <option value="INFO" {{ 'selected' if current_level == 'INFO' else '' }}>INFO</option>
+                        <option value="WARNING" {{ 'selected' if current_level == 'WARNING' else '' }}>WARNING</option>
+                        <option value="ERROR" {{ 'selected' if current_level == 'ERROR' else '' }}>ERROR</option>
+                        <option value="CRITICAL" {{ 'selected' if current_level == 'CRITICAL' else '' }}>CRITICAL</option>
+                    </select>
+                    <small class="u-text-muted">Logging verbosity for all services.</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="card u-mb-3">
+            <div class="card__header">
+                <h2 class="card__title">
+                    <i data-lucide="database" class="btn__icon"></i>
+                    Database Configuration
+                </h2>
+            </div>
+            <div class="card__body">
+                <div class="u-flex u-flex-gap-2 u-flex-wrap">
+                    <div style="flex: 1; min-width: 200px;">
+                        <p class="u-mb-1"><strong>PostgreSQL</strong></p>
+                        <p class="u-text-muted u-text-sm">
+                            Host: {{ config.get('databases', {}).get('postgresql', {}).get('host', 'localhost') }}<br>
+                            Port: {{ config.get('databases', {}).get('postgresql', {}).get('port', 5432) }}
+                        </p>
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <p class="u-mb-1"><strong>Neo4j</strong></p>
+                        <p class="u-text-muted u-text-sm">
+                            URI: {{ config.get('databases', {}).get('neo4j', {}).get('uri', 'bolt://localhost:7687') }}
+                        </p>
+                    </div>
+                </div>
+                <p class="u-text-muted u-mt-2 u-text-sm">
+                    <i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                    Edit master_config.json directly to change database settings.
+                </p>
+            </div>
+        </div>
+
+        <div class="card u-mb-3">
+            <div class="card__header">
+                <h2 class="card__title">
+                    <i data-lucide="key" class="btn__icon"></i>
+                    Keycloak Configuration
+                </h2>
+            </div>
+            <div class="card__body">
+                <p class="u-text-muted u-text-sm">
+                    URL: {{ config.get('keycloak', {}).get('url', 'http://localhost:8080') }}<br>
+                    Realm: {{ config.get('keycloak', {}).get('realm', 'hivematrix') }}<br>
+                    Client ID: {{ config.get('keycloak', {}).get('client_id', 'core-client') }}
+                </p>
+                <p class="u-text-muted u-mt-2 u-text-sm">
+                    <i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                    Edit master_config.json directly to change Keycloak settings.
+                </p>
+            </div>
+        </div>
+
+        <div class="u-flex u-flex-gap">
+            <button type="submit" class="btn btn--primary">
+                <span class="btn__label">
+                    <i data-lucide="save" class="btn__icon"></i>
+                    Save Settings
+                </span>
+            </button>
+        </div>
+    </form>
+
+    <script>
+        lucide.createIcons();
+    </script>
+    <div class="version-footer">
+        <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>
+    </div>
+</body>
+</html>
