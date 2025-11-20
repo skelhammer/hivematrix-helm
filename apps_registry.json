@@ -17,18 +17,18 @@
       "required": true,
       "dependencies": ["core", "keycloak"],
       "install_order": 2
+    },
+    "codex": {
+      "name": "HiveMatrix Codex",
+      "description": "Central data hub for MSP operations - Required",
+      "git_url": "https://github.com/skelhammer/hivematrix-codex",
+      "port": 5010,
+      "required": true,
+      "dependencies": ["postgresql", "core"],
+      "install_order": 3
     }
   },
   "default_apps": {
-    "codex": {
-      "name": "HiveMatrix Codex",
-      "description": "Central data hub for MSP operations",
-      "git_url": "https://github.com/skelhammer/hivematrix-codex",
-      "port": 5010,
-      "required": false,
-      "dependencies": ["postgresql", "core"],
-      "install_order": 3
-    },
     "ledger": {
       "name": "HiveMatrix Ledger",
       "description": "Billing calculations and invoicing",
