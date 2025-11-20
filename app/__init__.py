@@ -94,6 +94,16 @@ if logs_dir.exists():
 # Add custom Jinja2 filters
 from datetime import datetime, timezone
 
+from app.version import VERSION, SERVICE_NAME as VERSION_SERVICE_NAME
+
+# Context processor to inject version into all templates
+@app.context_processor
+def inject_version():
+    return {
+        'app_version': VERSION,
+        'app_service_name': VERSION_SERVICE_NAME
+    }
+
 @app.template_filter('format_uptime')
 def format_uptime(timestamp_str):
     """Convert ISO timestamp to human-readable uptime"""
