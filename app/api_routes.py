@@ -176,7 +176,7 @@ def ingest_logs():
                 user_id=log_data.get('user_id'),
                 hostname=log_data.get('hostname'),
                 process_id=log_data.get('process_id'),
-                timestamp=log_data.get('timestamp') or datetime.now(timezone.utc)
+                timestamp=log_data.get('timestamp') or datetime.utcnow()
             )
             db.session.add(log_entry)
             ingested += 1

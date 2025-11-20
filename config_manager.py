@@ -266,10 +266,47 @@ class ConfigManager:
         instance_dir.mkdir(exist_ok=True)
 
         conf_path = instance_dir / f"{app_name}.conf"
+
+        # If config already exists, preserve the database section
+        existing_db_config = None
+        if conf_path.exists():
+            try:
+                existing_conf = configparser.ConfigParser()
+                existing_conf.read(conf_path)
+                if 'database' in existing_conf:
+                    existing_db_config = dict(existing_conf['database'])
+            except Exception:
+                pass  # If we can't read it, we'll regenerate
+
         content = self.generate_app_conf(app_name)
 
-        with open(conf_path, 'w') as f:
-            f.write(content)
+        # If we had an existing database config, merge it back in
+        if existing_db_config:
+            new_conf = configparser.ConfigParser()
+            from io import StringIO
+            # Only read generated content if it's not empty
+            if content.strip():
+                new_conf.read_string(content)
+            # Always preserve the existing database section
+            new_conf['database'] = existing_db_config
+
+            output = StringIO()
+            new_conf.write(output)
+            content = output.getvalue()
+
+        # Only write if we have content to write
+        if content.strip() or existing_db_config:
+            # If generated content is empty but we have preserved database config, write it
+            if not content.strip() and existing_db_config:
+                new_conf = configparser.ConfigParser()
+                new_conf['database'] = existing_db_config
+                from io import StringIO
+                output = StringIO()
+                new_conf.write(output)
+                content = output.getvalue()
+
+            with open(conf_path, 'w') as f:
+                f.write(content)
 
     def sync_all_apps(self):
         """Sync configuration to all installed apps"""

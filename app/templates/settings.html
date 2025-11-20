@@ -11,6 +11,12 @@
         <div class="card__header">
             <h1 class="card__title">System Settings</h1>
             <div class="card__header-actions">
+                <button type="button" class="btn btn--primary" onclick="document.getElementById('settings-form').submit()">
+                    <span class="btn__label">
+                        <i data-lucide="save" class="btn__icon"></i>
+                        Save Settings
+                    </span>
+                </button>
                 <button class="btn" onclick="window.location.href='{{ url_for('index') }}'">
                     <span class="btn__label">
                         <i data-lucide="arrow-left" class="btn__icon"></i>
@@ -23,9 +29,9 @@
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        <div class="u-mb-3">
+        <div class="toast-container" id="toast-container">
             {% for category, message in messages %}
-                <div class="alert alert--{{ 'success' if category == 'success' else 'error' }}">
+                <div class="toast toast--{{ 'success' if category == 'success' else 'warning' if category == 'warning' else 'info' if category == 'info' else 'error' }}" onclick="dismissToast(this)">
                     {{ message }}
                 </div>
             {% endfor %}
@@ -33,7 +39,7 @@
         {% endif %}
     {% endwith %}
 
-    <form action="{{ url_for('save_settings') }}" method="POST">
+    <form id="settings-form" action="{{ url_for('save_settings') }}" method="POST">
         <div class="card u-mb-3">
             <div class="card__header">
                 <h2 class="card__title">
@@ -134,18 +140,118 @@
             </div>
         </div>
 
-        <div class="u-flex u-flex-gap">
-            <button type="submit" class="btn btn--primary">
-                <span class="btn__label">
-                    <i data-lucide="save" class="btn__icon"></i>
-                    Save Settings
-                </span>
-            </button>
-        </div>
     </form>
 
+    <div class="card u-mb-3">
+        <div class="card__header">
+            <h2 class="card__title">
+                <i data-lucide="refresh-cw" class="btn__icon"></i>
+                Service Management
+            </h2>
+        </div>
+        <div class="card__body">
+            <p class="u-text-muted u-mb-3">Sync configuration to all services or restart all running services to apply changes.</p>
+            <div class="u-flex u-flex-gap u-flex-wrap">
+                <form action="{{ url_for('sync_config') }}" method="POST" class="u-inline">
+                    <button type="submit" class="btn btn--secondary">
+                        <span class="btn__label">
+                            <i data-lucide="copy" class="btn__icon"></i>
+                            Sync Configuration
+                        </span>
+                    </button>
+                </form>
+                <form action="{{ url_for('restart_all_services') }}" method="POST" class="u-inline" onsubmit="return confirm('Restart all running services? This will briefly interrupt service.');">
+                    <button type="submit" class="btn btn--warning">
+                        <span class="btn__label">
+                            <i data-lucide="rotate-cw" class="btn__icon"></i>
+                            Restart All Services
+                        </span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="card u-mb-3">
+        <div class="card__header">
+            <h2 class="card__title">
+                <i data-lucide="shield-check" class="btn__icon"></i>
+                SSL Certificate
+            </h2>
+        </div>
+        <div class="card__body">
+            <div id="ssl-info">
+                <p class="u-text-muted">Loading certificate information...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card u-mb-3">
+        <div class="card__header">
+            <h2 class="card__title">
+                <i data-lucide="archive" class="btn__icon"></i>
+                Backup
+            </h2>
+        </div>
+        <div class="card__body">
+            <p class="u-text-muted u-mb-3">Create a backup of all databases and configuration. Full backups require sudo access.</p>
+            <form action="{{ url_for('trigger_backup') }}" method="POST" class="u-inline">
+                <button type="submit" class="btn btn--secondary">
+                    <span class="btn__label">
+                        <i data-lucide="download" class="btn__icon"></i>
+                        Test Backup
+                    </span>
+                </button>
+            </form>
+            <p class="u-text-muted u-mt-2 u-text-sm">
+                <i data-lucide="terminal" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                For full backup, run: <code>sudo python3 backup.py</code>
+            </p>
+        </div>
+    </div>
+
     <script>
+        // Load SSL certificate info
+        fetch('{{ url_for("ssl_info") }}')
+            .then(response => response.json())
+            .then(data => {
+                const sslDiv = document.getElementById('ssl-info');
+                if (data.exists) {
+                    sslDiv.innerHTML = `
+                        <p class="u-mb-1"><strong>Subject:</strong> ${data.subject || 'N/A'}</p>
+                        <p class="u-mb-1"><strong>Issuer:</strong> ${data.issuer || 'N/A'}</p>
+                        <p class="u-mb-1"><strong>Expires:</strong> ${data.expires || 'N/A'}</p>
+                        <p class="u-text-muted u-mt-2 u-text-sm">
+                            <i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                            Certificate location: ${data.path}
+                        </p>
+                    `;
+                } else {
+                    sslDiv.innerHTML = `
+                        <p class="u-text-warning">No SSL certificate found.</p>
+                        <p class="u-text-muted u-text-sm">Generate a certificate in hivematrix-nexus/certs/</p>
+                    `;
+                }
+                lucide.createIcons();
+            })
+            .catch(error => {
+                document.getElementById('ssl-info').innerHTML = `
+                    <p class="u-text-danger">Error loading certificate info: ${error.message}</p>
+                `;
+            });
+
         lucide.createIcons();
+
+        // Toast notification auto-dismiss
+        function dismissToast(toast) {
+            toast.classList.add('toast--hiding');
+            setTimeout(() => toast.remove(), 300);
+        }
+
+        // Auto-dismiss toasts after 5 seconds
+        document.querySelectorAll('.toast').forEach(toast => {
+            setTimeout(() => dismissToast(toast), 5000);
+        });
     </script>
     <div class="version-footer">
         <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>

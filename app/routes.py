@@ -138,7 +138,10 @@ def metrics_view():
                 started_at = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
 
             now = datetime.now(timezone.utc)
-            delta = now - started_at.replace(tzinfo=None)
+            # Ensure started_at is timezone-aware for comparison
+            if started_at.tzinfo is None:
+                started_at = started_at.replace(tzinfo=timezone.utc)
+            delta = now - started_at
             total_seconds = int(delta.total_seconds())
 
             # Format uptime
@@ -211,6 +214,33 @@ def service_logs(service_name):
         log_type=log_type,
         lines=lines
     )
+
+
+@app.route('/service/<service_name>/restart', methods=['POST'])
+@admin_required
+def restart_service_web(service_name):
+    """Restart a specific service (web UI)"""
+    if g.is_service_call:
+        return {'error': 'This endpoint is for users only'}, 403
+
+    # Don't allow restarting Helm itself
+    if service_name == 'helm':
+        flash('Cannot restart Helm from the web interface. Use the CLI instead.', 'warning')
+        return redirect(url_for('service_detail', service_name=service_name))
+
+    try:
+        result = ServiceManager.restart_service(service_name, 'development')
+        if result.get('success'):
+            flash(f'Successfully restarted {service_name}', 'success')
+        else:
+            error_msg = result.get('error', result.get('message', 'Unknown error'))
+            flash(f'Failed to restart {service_name}: {error_msg}', 'error')
+    except ValueError:
+        flash(f'Service {service_name} not found', 'error')
+    except Exception as e:
+        flash(f'Error restarting {service_name}: {str(e)}', 'error')
+
+    return redirect(url_for('service_detail', service_name=service_name))
 
 
 @app.route('/users')
@@ -288,8 +318,144 @@ def save_settings():
         with open(config_path, 'w') as f:
             json.dump(config, f, indent=2)
 
-        flash('Settings saved successfully. Restart services for changes to take effect.', 'success')
+        # Auto-sync configuration to all services
+        try:
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from config_manager import ConfigManager
+
+            helm_dir = os.path.dirname(os.path.dirname(__file__))
+            config_mgr = ConfigManager(helm_dir)
+            config_mgr.sync_all_apps()
+
+            flash('Settings saved and synced to all services. Restart services for changes to take effect.', 'success')
+        except Exception as sync_error:
+            flash(f'Settings saved, but sync failed: {str(sync_error)}. Use Sync Configuration button.', 'warning')
     except Exception as e:
         flash(f'Error saving settings: {str(e)}', 'error')
+
+    return redirect(url_for('settings'))
+
+
+@app.route('/settings/sync-config', methods=['POST'])
+@admin_required
+def sync_config():
+    """Sync configuration to all services"""
+    if g.is_service_call:
+        return {'error': 'This endpoint is for users only'}, 403
+
+    try:
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        from config_manager import ConfigManager
+
+        helm_dir = os.path.dirname(os.path.dirname(__file__))
+        config_mgr = ConfigManager(helm_dir)
+        config_mgr.sync_all_apps()
+
+        flash('Configuration synced to all services successfully.', 'success')
+    except Exception as e:
+        flash(f'Error syncing configuration: {str(e)}', 'error')
+
+    return redirect(url_for('settings'))
+
+
+@app.route('/settings/restart-all', methods=['POST'])
+@admin_required
+def restart_all_services():
+    """Restart all running services"""
+    if g.is_service_call:
+        return {'error': 'This endpoint is for users only'}, 403
+
+    try:
+        statuses = ServiceManager.get_all_service_statuses()
+        restarted = []
+        failed = []
+
+        for service_name, status in statuses.items():
+            if status.get('status') == 'running' and service_name != 'helm':
+                result = ServiceManager.restart_service(service_name)
+                if result.get('success'):
+                    restarted.append(service_name)
+                else:
+                    failed.append(service_name)
+
+        if restarted:
+            flash(f'Restarted services: {", ".join(restarted)}', 'success')
+        if failed:
+            flash(f'Failed to restart: {", ".join(failed)}', 'error')
+        if not restarted and not failed:
+            flash('No services to restart.', 'info')
+
+    except Exception as e:
+        flash(f'Error restarting services: {str(e)}', 'error')
+
+    return redirect(url_for('settings'))
+
+
+@app.route('/settings/ssl-info')
+@admin_required
+def ssl_info():
+    """Get SSL certificate information"""
+    if g.is_service_call:
+        return {'error': 'This endpoint is for users only'}, 403
+
+    import subprocess
+    from datetime import datetime
+
+    cert_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'hivematrix-nexus', 'certs', 'nexus.crt')
+    cert_info = {'exists': False}
+
+    if os.path.exists(cert_path):
+        cert_info['exists'] = True
+        cert_info['path'] = cert_path
+
+        try:
+            # Get certificate details using openssl
+            result = subprocess.run(
+                ['openssl', 'x509', '-in', cert_path, '-noout', '-subject', '-enddate', '-issuer'],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')
+                for line in lines:
+                    if line.startswith('subject='):
+                        cert_info['subject'] = line.replace('subject=', '').strip()
+                    elif line.startswith('notAfter='):
+                        cert_info['expires'] = line.replace('notAfter=', '').strip()
+                    elif line.startswith('issuer='):
+                        cert_info['issuer'] = line.replace('issuer=', '').strip()
+        except Exception as e:
+            cert_info['error'] = str(e)
+
+    return jsonify(cert_info)
+
+
+@app.route('/settings/backup', methods=['POST'])
+@admin_required
+def trigger_backup():
+    """Trigger a backup"""
+    if g.is_service_call:
+        return {'error': 'This endpoint is for users only'}, 403
+
+    try:
+        import subprocess
+        backup_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backup.py')
+
+        if os.path.exists(backup_script):
+            # Run backup script (note: may need sudo for full backup)
+            result = subprocess.run(
+                ['python3', backup_script, '--dry-run'],
+                capture_output=True, text=True, timeout=60
+            )
+            if result.returncode == 0:
+                flash('Backup dry-run completed. Run with sudo for full backup.', 'info')
+            else:
+                flash(f'Backup check failed: {result.stderr}', 'error')
+        else:
+            flash('Backup script not found.', 'error')
+
+    except Exception as e:
+        flash(f'Error running backup: {str(e)}', 'error')
 
     return redirect(url_for('settings'))

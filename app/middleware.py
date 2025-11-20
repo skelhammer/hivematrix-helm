@@ -24,7 +24,16 @@ class PrefixMiddleware:
             path_info = environ.get('PATH_INFO', '')
 
             if path_info.startswith(self.prefix):
+                # Request came with prefix (direct access or proxy keeping prefix)
                 environ['SCRIPT_NAME'] = script_name + self.prefix
                 environ['PATH_INFO'] = path_info[len(self.prefix):]
+            else:
+                # Check for X-Script-Name header from proxy, or use prefix if proxied
+                x_script_name = environ.get('HTTP_X_SCRIPT_NAME', '')
+                if x_script_name:
+                    environ['SCRIPT_NAME'] = x_script_name
+                elif environ.get('HTTP_X_FORWARDED_HOST'):
+                    # Request came through proxy - set SCRIPT_NAME for url_for
+                    environ['SCRIPT_NAME'] = self.prefix
 
         return self.app(environ, start_response)
