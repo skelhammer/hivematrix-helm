@@ -17,6 +17,9 @@ app.config['SESSION_COOKIE_NAME'] = 'helm_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
+# Disable static file caching in development
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # No caching for static files
+
 # Configure logging level from environment
 import logging
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
