@@ -77,6 +77,17 @@ except FileNotFoundError:
 from extensions import db
 db.init_app(app)
 
+# Configure rate limiting
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per hour", "50 per minute"],
+    storage_uri="memory://"
+)
+
 # Apply middleware to handle URL prefix when behind Nexus proxy
 from app.middleware import PrefixMiddleware
 app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix=f'/{app.config["SERVICE_NAME"]}')

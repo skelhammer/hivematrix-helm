@@ -3,7 +3,7 @@ API routes for service control and log ingestion
 """
 
 from flask import request, jsonify, g
-from app import app
+from app import app, limiter
 from app.auth import token_required, admin_required
 from app.service_manager import ServiceManager
 from extensions import db
@@ -78,7 +78,8 @@ def service_status(service_name):
         status = ServiceManager.get_service_status(service_name)
         return jsonify(status)
     except ValueError as e:
-        return {'error': str(e)}, 404
+        app.logger.error(f'Service not found: {str(e)}')
+        return {'error': 'Service not found'}, 404
 
 
 @app.route('/api/services/<service_name>/start', methods=['POST'])
@@ -191,7 +192,8 @@ def ingest_logs():
 
     except Exception as e:
         db.session.rollback()
-        return {'error': f'Failed to ingest logs: {str(e)}'}, 500
+        app.logger.error(f'Failed to ingest logs: {str(e)}')
+        return {'error': 'Internal server error'}, 500
 
 
 @app.route('/api/logs', methods=['GET'])
@@ -698,7 +700,8 @@ def security_audit():
 
         return jsonify(findings)
     except Exception as e:
-        return {'error': f'Security audit failed: {str(e)}'}, 500
+        app.logger.error(f'Security audit failed: {str(e)}')
+        return {'error': 'Internal server error'}, 500
 
 
 @app.route('/api/security/firewall-script', methods=['GET'])
@@ -733,7 +736,8 @@ def generate_firewall_script():
             'type': script_type
         })
     except Exception as e:
-        return {'error': f'Failed to generate firewall script: {str(e)}'}, 500
+        app.logger.error(f'Failed to generate firewall script: {str(e)}')
+        return {'error': 'Internal server error'}, 500
 
 
 # ============================================================
@@ -741,6 +745,7 @@ def generate_firewall_script():
 # ============================================================
 
 @app.route('/health', methods=['GET'])
+@limiter.exempt
 def health_check():
     """Health check endpoint for monitoring"""
     return jsonify({
