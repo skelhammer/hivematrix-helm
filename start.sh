@@ -615,7 +615,16 @@ EOF
     echo ""
 else
     echo -e "${GREEN}✓ Codex database already exists${NC}"
-    echo -e "${BLUE}  To view credentials: cd $PARENT_DIR/hivematrix-codex && ./get_db_credentials.sh${NC}"
+    echo ""
+    # Extract and display existing credentials
+    if [ -f "$PARENT_DIR/hivematrix-codex/instance/codex.conf" ]; then
+        EXISTING_CODEX_PASS=$(grep "^password =" "$PARENT_DIR/hivematrix-codex/instance/codex.conf" | sed 's/password = //')
+        echo -e "${BLUE}Codex Database Credentials:${NC}"
+        echo "  Database: codex_db"
+        echo "  User:     codex_user"
+        echo "  Password: $EXISTING_CODEX_PASS"
+        echo ""
+    fi
 fi
 echo ""
 
@@ -785,7 +794,7 @@ import json
 with open('$MASTER_CONFIG', 'r') as f:
     config = json.load(f)
 config['system']['hostname'] = '$HOSTNAME'
-config['system']['environment'] = 'production'
+config['system']['environment'] = 'development'
 with open('$MASTER_CONFIG', 'w') as f:
     json.dump(config, f, indent=2)
 EOF
