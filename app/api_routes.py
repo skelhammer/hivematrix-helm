@@ -129,6 +129,7 @@ def restart_service(service_name):
 # ============================================================
 
 @app.route('/api/logs/ingest', methods=['POST'])
+@limiter.exempt
 @token_required
 def ingest_logs():
     """
