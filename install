@@ -192,24 +192,11 @@ case "$MODULE_NAME" in
         echo -e "${YELLOW}PostgreSQL database setup for $MODULE_NAME${NC}"
         echo ""
 
-        # Prompt for database password
-        echo -e "${BLUE}Enter a password for the database user '${DB_USER}':${NC}"
-        read -s -p "Password: " DB_PASSWORD
-        echo ""
-        read -s -p "Confirm password: " DB_PASSWORD_CONFIRM
+        # Auto-generate secure random password
+        DB_PASSWORD=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-24)
+        echo -e "${GREEN}✓ Generated secure password for database user${NC}"
         echo ""
 
-        if [ "$DB_PASSWORD" != "$DB_PASSWORD_CONFIRM" ]; then
-            echo -e "${RED}✗ Passwords do not match${NC}"
-            exit 1
-        fi
-
-        if [ -z "$DB_PASSWORD" ]; then
-            echo -e "${RED}✗ Password cannot be empty${NC}"
-            exit 1
-        fi
-
-        echo ""
         echo -e "${YELLOW}Checking if database exists...${NC}"
 
         # Check if database exists
@@ -305,7 +292,16 @@ case "$MODULE_NAME" in
 
         echo ""
         echo -e "${GREEN}✓ Database setup complete${NC}"
+        echo ""
+        echo -e "${BLUE}Database Credentials:${NC}"
+        echo "  Database: ${DB_NAME}"
+        echo "  User:     ${DB_USER}"
+        echo "  Password: ${DB_PASSWORD}"
+        echo ""
+        echo -e "${YELLOW}  Password saved to: $MODULE_DIR/instance/${MODULE_NAME}.conf${NC}"
         ;;
+
+
 
     knowledgetree)
         # Neo4j-based module
