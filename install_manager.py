@@ -12,6 +12,21 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+# Service display order for sidebar (front to back)
+# Services not in this list will be appended alphabetically
+SERVICE_ORDER = [
+    'beacon',       # Ticket monitoring (front page)
+    'knowledgetree',# Knowledge base
+    'brainhair',    # AI assistant
+    'codex',        # Master data
+    'ledger',       # Billing/invoicing
+    'archive',      # Billing snapshots
+    'helm',         # System admin (admin only)
+    'core',         # Auth service (not visible)
+    'nexus',        # Gateway (not visible)
+    'keycloak'      # Auth provider (not visible)
+]
+
 class InstallManager:
     def __init__(self, helm_dir: str = None):
         self.helm_dir = Path(helm_dir) if helm_dir else Path(__file__).parent
@@ -392,13 +407,24 @@ class InstallManager:
 
             services[service_name] = service_config
 
-        # Write services.json
-        with open(self.services_json, 'w') as f:
-            json.dump(services, f, indent=2)
+        # Sort services according to SERVICE_ORDER
+        def sort_key(item):
+            service_name = item[0]
+            try:
+                return SERVICE_ORDER.index(service_name)
+            except ValueError:
+                # Service not in order list - put at end, sorted alphabetically
+                return len(SERVICE_ORDER) + ord(service_name[0])
 
-        # Update master_services.json
+        sorted_services = dict(sorted(services.items(), key=sort_key))
+
+        # Write services.json with sorted order
+        with open(self.services_json, 'w') as f:
+            json.dump(sorted_services, f, indent=2)
+
+        # Update master_services.json with same order
         master_services = {}
-        for key, value in services.items():
+        for key, value in sorted_services.items():
             master_services[key] = {
                 "url": value['url'],
                 "port": value['port']
