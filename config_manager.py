@@ -134,6 +134,7 @@ class ConfigManager:
         lines = [
             f"FLASK_APP=run.py",
             f"FLASK_ENV={config['system']['environment']}",
+            f"ENVIRONMENT={config['system']['environment']}",
             f"SECRET_KEY={config['system']['secret_key']}",
             f"SERVICE_NAME={app_name}",
             f"",
@@ -267,49 +268,82 @@ class ConfigManager:
 
         conf_path = instance_dir / f"{app_name}.conf"
 
-        # If config already exists, preserve the database section
-        existing_db_config = None
+        # If config already exists, preserve ALL existing sections
+        existing_conf_data = {}
         if conf_path.exists():
             try:
                 existing_conf = configparser.ConfigParser()
                 existing_conf.read(conf_path)
-                if 'database' in existing_conf:
-                    existing_db_config = dict(existing_conf['database'])
+                # Preserve ALL sections, not just database
+                for section in existing_conf.sections():
+                    existing_conf_data[section] = dict(existing_conf[section])
             except Exception:
                 pass  # If we can't read it, we'll regenerate
 
         content = self.generate_app_conf(app_name)
 
-        # If we had an existing database config, merge it back in
-        if existing_db_config:
+        # Merge existing config with newly generated config
+        # Strategy: Generated config takes precedence, but preserve anything not generated
+        if existing_conf_data or content.strip():
             new_conf = configparser.ConfigParser()
             from io import StringIO
-            # Only read generated content if it's not empty
+
+            # First, load all existing sections
+            for section, values in existing_conf_data.items():
+                new_conf[section] = values
+
+            # Then, overlay the newly generated config (takes precedence)
             if content.strip():
-                new_conf.read_string(content)
-            # Always preserve the existing database section
-            new_conf['database'] = existing_db_config
+                generated_conf = configparser.ConfigParser()
+                generated_conf.read_string(content)
+                for section in generated_conf.sections():
+                    new_conf[section] = dict(generated_conf[section])
 
             output = StringIO()
             new_conf.write(output)
             content = output.getvalue()
 
-        # Only write if we have content to write
-        if content.strip() or existing_db_config:
-            # If generated content is empty but we have preserved database config, write it
-            if not content.strip() and existing_db_config:
-                new_conf = configparser.ConfigParser()
-                new_conf['database'] = existing_db_config
-                from io import StringIO
-                output = StringIO()
-                new_conf.write(output)
-                content = output.getvalue()
-
             with open(conf_path, 'w') as f:
                 f.write(content)
 
+    def backup_app_configs(self, app_name: str):
+        """
+        Create backup of app configuration files before sync.
+
+        Args:
+            app_name: Name of the app to backup
+        """
+        import shutil
+        from datetime import datetime
+
+        app_dir = self.parent_dir / f"hivematrix-{app_name}"
+        if not app_dir.exists():
+            return
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_dir = app_dir / "instance" / "backups"
+        backup_dir.mkdir(exist_ok=True)
+
+        # Backup .flaskenv
+        flaskenv_path = app_dir / ".flaskenv"
+        if flaskenv_path.exists():
+            backup_path = backup_dir / f".flaskenv.{timestamp}"
+            shutil.copy2(flaskenv_path, backup_path)
+
+        # Backup instance/*.conf
+        instance_dir = app_dir / "instance"
+        if instance_dir.exists():
+            conf_path = instance_dir / f"{app_name}.conf"
+            if conf_path.exists():
+                backup_path = backup_dir / f"{app_name}.conf.{timestamp}"
+                shutil.copy2(conf_path, backup_path)
+
     def sync_all_apps(self):
-        """Sync configuration to all installed apps"""
+        """
+        Sync configuration to all installed apps with automatic backups.
+
+        Creates timestamped backups before modifying any config files.
+        """
         from install_manager import InstallManager
 
         install_mgr = InstallManager(str(self.helm_dir))
@@ -317,6 +351,10 @@ class ConfigManager:
 
         for app_name in installed_apps:
             try:
+                # ALWAYS create backup before syncing
+                self.backup_app_configs(app_name)
+
+                # Now safe to sync
                 self.write_app_dotenv(app_name)
                 self.write_app_conf(app_name)
                 print(f"✓ Synced configuration for {app_name}")

@@ -238,7 +238,8 @@ def restart_service_web(service_name):
     except ValueError:
         flash(f'Service {service_name} not found', 'error')
     except Exception as e:
-        flash(f'Error restarting {service_name}: {str(e)}', 'error')
+        app.logger.error(f'Error restarting {service_name}: {str(e)}')
+        flash('Internal server error', 'error')
 
     return redirect(url_for('service_detail', service_name=service_name))
 
@@ -330,9 +331,11 @@ def save_settings():
 
             flash('Settings saved and synced to all services. Restart services for changes to take effect.', 'success')
         except Exception as sync_error:
-            flash(f'Settings saved, but sync failed: {str(sync_error)}. Use Sync Configuration button.', 'warning')
+            app.logger.error(f'Settings saved, but sync failed: {str(sync_error)}')
+            flash('Settings saved, but sync failed. Use Sync Configuration button.', 'warning')
     except Exception as e:
-        flash(f'Error saving settings: {str(e)}', 'error')
+        app.logger.error(f'Error saving settings: {str(e)}')
+        flash('Internal server error', 'error')
 
     return redirect(url_for('settings'))
 
@@ -355,7 +358,8 @@ def sync_config():
 
         flash('Configuration synced to all services successfully.', 'success')
     except Exception as e:
-        flash(f'Error syncing configuration: {str(e)}', 'error')
+        app.logger.error(f'Error syncing configuration: {str(e)}')
+        flash('Internal server error', 'error')
 
     return redirect(url_for('settings'))
 
@@ -388,7 +392,8 @@ def restart_all_services():
             flash('No services to restart.', 'info')
 
     except Exception as e:
-        flash(f'Error restarting services: {str(e)}', 'error')
+        app.logger.error(f'Error restarting services: {str(e)}')
+        flash('Internal server error', 'error')
 
     return redirect(url_for('settings'))
 
@@ -426,7 +431,8 @@ def ssl_info():
                     elif line.startswith('issuer='):
                         cert_info['issuer'] = line.replace('issuer=', '').strip()
         except Exception as e:
-            cert_info['error'] = str(e)
+            app.logger.error(f'Error reading certificate info: {str(e)}')
+            cert_info['error'] = 'Failed to read certificate'
 
     return jsonify(cert_info)
 
@@ -456,6 +462,7 @@ def trigger_backup():
             flash('Backup script not found.', 'error')
 
     except Exception as e:
-        flash(f'Error running backup: {str(e)}', 'error')
+        app.logger.error(f'Error running backup: {str(e)}')
+        flash('Internal server error', 'error')
 
     return redirect(url_for('settings'))

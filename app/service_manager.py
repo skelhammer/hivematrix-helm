@@ -351,7 +351,10 @@ class ServiceManager:
             }
 
         except Exception as e:
-            return {'success': False, 'message': f'Failed to start service: {str(e)}'}
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Failed to start service {service_name}: {str(e)}')
+            return {'success': False, 'message': 'Internal server error'}
 
     @staticmethod
     def stop_service(service_name):
@@ -407,7 +410,10 @@ class ServiceManager:
             db.session.commit()
             return {'success': True, 'message': 'Service was already stopped'}
         except Exception as e:
-            return {'success': False, 'message': f'Failed to stop service: {str(e)}'}
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Failed to stop service {service_name}: {str(e)}')
+            return {'success': False, 'message': 'Internal server error'}
 
     @staticmethod
     def restart_service(service_name, mode='development'):
@@ -475,9 +481,13 @@ class ServiceManager:
         health_endpoints = ['/health', '/']
         health_checked = False
 
+        # SSL verification should be disabled for localhost (self-signed certs) and in development
+        is_localhost = 'localhost' in config['url'] or '127.0.0.1' in config['url']
+        verify_ssl = not is_localhost and os.environ.get('ENVIRONMENT', 'production') != 'development'
+
         for endpoint in health_endpoints:
             try:
-                response = requests.get(f"{config['url']}{endpoint}", timeout=2, verify=False)
+                response = requests.get(f"{config['url']}{endpoint}", timeout=2, verify=verify_ssl)
                 if response.status_code == 200:
                     result['health'] = 'healthy'
                     result['health_message'] = f'Service responding at {endpoint}'
@@ -536,7 +546,10 @@ class ServiceManager:
                     content = f.readlines()
                     return ''.join(content[-num_lines:]) if content else "No logs available"
             except Exception as e:
-                return f"Error reading log file: {str(e)}"
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error reading log file {filepath}: {str(e)}")
+                return "Error reading log file"
 
         if log_type in ('stdout', 'both'):
             result['stdout'] = tail_file(stdout_path, lines)
