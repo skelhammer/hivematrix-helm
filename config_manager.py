@@ -149,6 +149,13 @@ class ConfigManager:
         if 'client_secret' in config['keycloak']:
             lines.append(f"KEYCLOAK_CLIENT_SECRET='{config['keycloak']['client_secret']}'")
 
+        # Add SSL configuration (disable verification for self-signed certs)
+        lines.extend([
+            f"",
+            f"# SSL Configuration",
+            f"VERIFY_SSL=False",
+        ])
+
         # Add JWT configuration for Core
         if app_name == 'core':
             lines.extend([
