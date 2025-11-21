@@ -573,28 +573,49 @@ fi
 echo ""
 
 # Initialize Codex database
+# Check if codex.conf exists and if it has a real password (not CHANGE_ME placeholder)
+CODEX_NEEDS_SETUP=false
 if [ ! -f "$PARENT_DIR/hivematrix-codex/instance/codex.conf" ]; then
+    CODEX_NEEDS_SETUP=true
+elif grep -q "CHANGE_ME" "$PARENT_DIR/hivematrix-codex/instance/codex.conf"; then
+    # Config exists but has placeholder password - needs setup
+    CODEX_NEEDS_SETUP=true
+    echo -e "${YELLOW}Codex config has placeholder password - will regenerate${NC}"
+fi
+
+if [ "$CODEX_NEEDS_SETUP" = true ]; then
     echo -e "${YELLOW}Setting up Codex database...${NC}"
 
     # Generate secure random password for Codex database
     CODEX_DB_PASS=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-24)
 
-    # Create database and user
-    echo "  Creating database and user..."
-    sudo -u postgres psql <<EOF
+    # Check if database already exists (in case only config was missing/placeholder)
+    DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='codex_db'" 2>/dev/null || echo "0")
+
+    if [ "$DB_EXISTS" = "1" ]; then
+        # Database exists, just update the password
+        echo "  Database exists, updating password..."
+        sudo -u postgres psql <<EOF
+ALTER USER codex_user WITH PASSWORD '$CODEX_DB_PASS';
+EOF
+    else
+        # Create database and user from scratch
+        echo "  Creating database and user..."
+        sudo -u postgres psql <<EOF
 CREATE DATABASE codex_db;
 CREATE USER codex_user WITH PASSWORD '$CODEX_DB_PASS';
 GRANT ALL PRIVILEGES ON DATABASE codex_db TO codex_user;
 EOF
 
-    # Grant schema permissions (PostgreSQL 15+)
-    sudo -u postgres psql -d codex_db <<EOF
+        # Grant schema permissions (PostgreSQL 15+)
+        sudo -u postgres psql -d codex_db <<EOF
 GRANT ALL ON SCHEMA public TO codex_user;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO codex_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO codex_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO codex_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO codex_user;
 EOF
+    fi
 
     # Initialize Codex schema using headless mode
     cd "$PARENT_DIR/hivematrix-codex"
@@ -616,9 +637,10 @@ EOF
 else
     echo -e "${GREEN}✓ Codex database already exists${NC}"
     echo ""
-    # Extract and display existing credentials
+    # Extract password from connection_string
     if [ -f "$PARENT_DIR/hivematrix-codex/instance/codex.conf" ]; then
-        EXISTING_CODEX_PASS=$(grep "^password =" "$PARENT_DIR/hivematrix-codex/instance/codex.conf" | sed 's/password = //')
+        # Extract password from connection_string: postgresql://user:PASSWORD@host:port/db
+        EXISTING_CODEX_PASS=$(grep "^connection_string" "$PARENT_DIR/hivematrix-codex/instance/codex.conf" | sed 's/.*:\/\/[^:]*:\([^@]*\)@.*/\1/')
         echo -e "${BLUE}Codex Database Credentials:${NC}"
         echo "  Database: codex_db"
         echo "  User:     codex_user"
