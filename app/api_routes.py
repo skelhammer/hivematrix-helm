@@ -29,6 +29,7 @@ def list_services():
 
 
 @app.route('/api/services/status', methods=['GET'])
+@limiter.exempt
 @token_required
 def all_services_status():
     """Get status of all services"""
@@ -37,6 +38,7 @@ def all_services_status():
 
 
 @app.route('/api/dashboard/status', methods=['GET'])
+@limiter.exempt
 @token_required
 def dashboard_status():
     """Get complete dashboard data (services + log stats)"""
@@ -71,6 +73,7 @@ def dashboard_status():
 
 
 @app.route('/api/services/<service_name>/status', methods=['GET'])
+@limiter.exempt
 @token_required
 def service_status(service_name):
     """Get status of a specific service"""
