@@ -9,6 +9,12 @@ from app.service_manager import ServiceManager
 from extensions import db
 from models import LogEntry, ServiceStatus, ServiceMetric
 from datetime import datetime, timedelta, timezone
+import sys
+import os
+
+# Health check library
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from health_check import HealthChecker
 
 # ============================================================
 # Service Control API
@@ -751,9 +757,24 @@ def generate_firewall_script():
 @app.route('/health', methods=['GET'])
 @limiter.exempt
 def health_check():
-    """Health check endpoint for monitoring"""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'helm',
-        'timestamp': datetime.now(timezone.utc).isoformat()
-    })
+    """
+    Comprehensive health check endpoint.
+
+    Checks:
+    - PostgreSQL database connectivity (logs and metrics)
+    - Disk space
+    - Core service availability
+
+    Returns:
+        JSON: Detailed health status with HTTP 200 (healthy) or 503 (unhealthy/degraded)
+    """
+    # Initialize health checker
+    health_checker = HealthChecker(
+        service_name='helm',
+        db=db,
+        dependencies=[
+            ('core', 'http://localhost:5000')
+        ]
+    )
+
+    return health_checker.get_health()

@@ -56,16 +56,15 @@ def check_required_services():
         core_healthy = False
         # Retry up to 5 times (15 seconds total)
         for attempt in range(5):
-            # Try /health first, fall back to /
-            for endpoint in ['/health', '/']:
-                try:
-                    response = requests.get(f"{core_config['url']}{endpoint}", timeout=3)
-                    if response.status_code == 200:
-                        print(f"✓ Core service is running (checked {endpoint})")
-                        core_healthy = True
-                        break
-                except requests.RequestException:
-                    continue
+            # Check root endpoint (faster than /health which checks dependencies)
+            try:
+                response = requests.get(f"{core_config['url']}/", timeout=2)
+                if response.status_code == 200:
+                    print(f"✓ Core service is running")
+                    core_healthy = True
+                    break
+            except requests.RequestException:
+                pass
 
             if core_healthy:
                 break
@@ -89,9 +88,10 @@ def check_required_services():
         # Retry up to 10 times (30 seconds total) - Nexus can take time to bind to port 443
         for attempt in range(10):
             try:
-                response = requests.get(f"{nexus_config['url']}/health", timeout=3, verify=False)
+                # Check root endpoint (faster than /health)
+                response = requests.get(f"{nexus_config['url']}/", timeout=2, verify=False)
                 if response.status_code == 200:
-                    print("✓ Nexus service is running")
+                    print(f"✓ Nexus service is running")
                     nexus_healthy = True
                     break
             except requests.RequestException as e:
