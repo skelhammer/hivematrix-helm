@@ -1,13 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Helm - HiveMatrix Service Manager</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body>
-    <div class="container">
+{% extends "layout.html" %}
+
+{% block title %}Helm - Service Manager{% endblock %}
+
+{% block content %}
+<div class="container">
         <div class="card u-mb-3">
             <div class="card__header">
                 <div>
@@ -145,8 +141,10 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
-    <script>
+{% block scripts %}
+<script>
         // Get the base path (in case we're behind a proxy like Nexus)
         function getBasePath() {
             // If we're at /helm/, use that as base, otherwise use root
@@ -212,9 +210,5 @@
 
         // Poll for updates every 5 seconds
         setInterval(updateDashboard, 5000);
-    </script>
-    <div class="version-footer">
-        <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>
-    </div>
-</body>
-</html>
+</script>
+{% endblock %}
