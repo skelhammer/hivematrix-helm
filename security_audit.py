@@ -21,7 +21,7 @@ class SecurityAuditor:
         'codex': 5010,
         'knowledgetree': 5020,
         'ledger': 5030,
-        'template': 5040,
+        'brainhair': 5050,
     }
 
     # Services that can be exposed but MUST be protected by firewall

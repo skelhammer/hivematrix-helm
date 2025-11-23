@@ -53,9 +53,9 @@ echo 'Port 5020 (knowledgetree) blocked from external access'
 sudo ufw deny 5030/tcp comment 'Block external ledger'
 echo 'Port 5030 (ledger) blocked from external access'
 
-# Block external access to template
-sudo ufw deny 5040/tcp comment 'Block external template'
-echo 'Port 5040 (template) blocked from external access'
+# Block external access to brainhair
+sudo ufw deny 5050/tcp comment 'Block external brainhair'
+echo 'Port 5050 (brainhair) blocked from external access'
 
 # Show status
 echo ''
