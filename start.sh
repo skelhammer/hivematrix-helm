@@ -1118,6 +1118,33 @@ else
     echo ""
 fi
 
+# Start Helm (the orchestrator itself)
+echo "================================================================"
+echo "  Starting Helm Orchestrator"
+echo "================================================================"
+echo ""
+
+# Disable exit on error
+set +e
+
+echo -e "${YELLOW}Starting Helm...${NC}"
+OUTPUT=$(python cli.py start helm 2>&1)
+EXIT_CODE=$?
+if echo "$OUTPUT" | grep -q "already running"; then
+    echo -e "${BLUE}  ✓ Helm already running${NC}"
+elif [ $EXIT_CODE -eq 0 ] || echo "$OUTPUT" | grep -q "started"; then
+    echo -e "${GREEN}✓ Helm started${NC}"
+    sleep 2
+else
+    echo -e "${RED}✗ Failed to start Helm${NC}"
+    echo "$OUTPUT"
+fi
+
+# Re-enable exit on error
+set -e
+
+echo ""
+
 # Show status
 echo "================================================================"
 echo "  Service Status"
