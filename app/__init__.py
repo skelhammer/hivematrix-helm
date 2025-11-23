@@ -149,6 +149,50 @@ def handle_unexpected_error(e):
     app.logger.exception(f"Unexpected error: {e}")
     return internal_server_error(detail="An unexpected error occurred")
 
+# Import version for Swagger documentation
+from app.version import VERSION, SERVICE_NAME as VERSION_SERVICE_NAME
+
+# Configure OpenAPI/Swagger documentation
+from flasgger import Swagger
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": 'apispec',
+            "route": '/apispec.json',
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/docs"
+}
+
+swagger_template = {
+    "info": {
+        "title": f"{app.config.get('SERVICE_NAME', 'HiveMatrix')} API",
+        "description": "API documentation for HiveMatrix Helm - Service orchestration, configuration management, and centralized logging",
+        "version": VERSION
+    },
+    "securityDefinitions": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "JWT Authorization header using the Bearer scheme. Example: 'Authorization: Bearer {token}'"
+        }
+    },
+    "security": [
+        {
+            "Bearer": []
+        }
+    ]
+}
+
+Swagger(app, config=swagger_config, template=swagger_template)
+
 # Import routes
 from app import routes
 from app import api_routes
@@ -170,8 +214,6 @@ if logs_dir.exists():
 
 # Add custom Jinja2 filters
 from datetime import datetime, timezone
-
-from app.version import VERSION, SERVICE_NAME as VERSION_SERVICE_NAME
 
 # Context processor to inject version into all templates
 @app.context_processor
