@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ service_name }} Logs - HiveMatrix Helm</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body>
+{% extends "layout.html" %}
+
+{% block title %}{{ service_name }} Logs{% endblock %}
+
+{% block content %}
     <div class="container">
         <div class="card u-mb-3">
             <div class="card__header">
@@ -76,8 +72,10 @@
         </div>
         {% endif %}
     </div>
+{% endblock %}
 
-    <script>
+{% block scripts %}
+<script>
         function getBasePath() {
             const path = window.location.pathname;
             if (path.startsWith('/helm/')) {
@@ -95,9 +93,5 @@
         window.addEventListener('load', () => {
             lucide.createIcons();
         });
-    </script>
-    <div class="version-footer">
-        <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>
-    </div>
-</body>
-</html>
+</script>
+{% endblock %}
