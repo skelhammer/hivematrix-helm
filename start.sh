@@ -228,6 +228,23 @@ PG_VERSION=$(psql --version | awk '{print $3}')
 echo -e "${GREEN}✓ PostgreSQL $PG_VERSION${NC}"
 echo ""
 
+# Check Redis (for session storage and rate limiting)
+echo -e "${YELLOW}Checking Redis...${NC}"
+if ! command -v redis-server &> /dev/null; then
+echo -e "${RED}✗ Redis not found${NC}"
+echo "Installing Redis..."
+if [[ "$OS" == "fedora" ]] || [[ "$OS" == "rhel" ]] || [[ "$OS" == "centos" ]]; then
+    $PKG_INSTALL redis
+else
+    $PKG_INSTALL redis-server
+fi
+sudo systemctl start redis-server 2>/dev/null || sudo systemctl start redis 2>/dev/null || true
+sudo systemctl enable redis-server 2>/dev/null || sudo systemctl enable redis 2>/dev/null || true
+fi
+REDIS_VERSION=$(redis-server --version | awk '{print $3}' | cut -d= -f2)
+echo -e "${GREEN}✓ Redis $REDIS_VERSION${NC}"
+echo ""
+
 # Check wget/curl
 if ! command -v wget &> /dev/null; then
 echo "Installing wget..."
@@ -1131,56 +1148,6 @@ if [ $AUDIT_EXIT_CODE -ne 0 ]; then
 else
     echo -e "${GREEN}✓ All services properly secured${NC}"
     echo ""
-fi
-
-echo "================================================================"
-echo "  Starting Helm Web Interface"
-echo "================================================================"
-echo ""
-
-# Check if port 5004 is already in use
-if lsof -i :5004 > /dev/null 2>&1; then
-    echo -e "${YELLOW}Port 5004 is already in use. Checking for stray Helm processes...${NC}"
-    STRAY_PIDS=$(lsof -ti :5004 2>/dev/null)
-    if [ -n "$STRAY_PIDS" ]; then
-        echo "  Stopping stray processes: $STRAY_PIDS"
-        kill -9 $STRAY_PIDS 2>/dev/null || true
-        sleep 1
-        echo -e "${GREEN}  ✓ Stray processes stopped${NC}"
-    fi
-fi
-
-# Start Helm with log redirection
-mkdir -p logs
-python run.py > logs/helm.stdout.log 2> logs/helm.stderr.log &
-HELM_PID=$!
-
-# Wait and check if Helm started successfully
-sleep 3
-
-# Check if Helm process is still running
-if ! ps -p $HELM_PID > /dev/null 2>&1; then
-    echo -e "${RED}✗ Helm failed to start${NC}"
-    echo ""
-    echo "Error details from logs/helm.stderr.log:"
-    echo "----------------------------------------"
-    if [ -f logs/helm.stderr.log ]; then
-        cat logs/helm.stderr.log
-    else
-        echo "(no error log found)"
-    fi
-    echo "----------------------------------------"
-    echo ""
-    echo "Last output from logs/helm.stdout.log:"
-    echo "----------------------------------------"
-    if [ -f logs/helm.stdout.log ]; then
-        tail -20 logs/helm.stdout.log
-    else
-        echo "(no output log found)"
-    fi
-    echo "----------------------------------------"
-    echo ""
-    cleanup
 fi
 
 echo ""

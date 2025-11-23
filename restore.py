@@ -2,7 +2,7 @@
 """
 HiveMatrix Restore Tool
 
-Restores PostgreSQL databases, Neo4j databases, and Keycloak directory from a backup.
+Restores PostgreSQL databases, Neo4j databases, Redis, and Keycloak directory from a backup.
 
 Usage:
     sudo python3 restore.py <backup_zip_file> [options]
@@ -10,6 +10,7 @@ Usage:
 Options:
     --postgresql-only    Restore only PostgreSQL databases
     --neo4j-only        Restore only Neo4j databases
+    --redis-only        Restore only Redis database
     --keycloak-only     Restore only Keycloak directory
     --configs-only      Restore only configuration files
     --force             Skip confirmation prompts (dangerous!)
@@ -18,6 +19,7 @@ Requires:
     - Root/sudo access for database restoration
     - psql, createdb for PostgreSQL
     - Neo4j must be stopped before restoration
+    - Redis will be automatically stopped/started during restore
 
 WARNING: This will OVERWRITE existing data! Make sure you have a backup of current data.
 """
@@ -641,6 +643,87 @@ ALTER ROLE {username} WITH PASSWORD '{password}';
         except Exception as e:
             print(f"  Warning: Could not check/update hostname: {e}")
 
+    def restore_redis(self):
+        """Restore Redis database from dump.rdb file."""
+        print("\n=== Restoring Redis ===")
+        redis_backup_dir = self.temp_dir / "redis"
+
+        if not redis_backup_dir.exists():
+            print("  No Redis backup found")
+            return
+
+        redis_dump_file = redis_backup_dir / "dump.rdb"
+        if not redis_dump_file.exists():
+            print("  No Redis dump.rdb file found in backup")
+            return
+
+        print(f"  Found Redis backup: {redis_dump_file}")
+
+        try:
+            # Check if Redis is running
+            result = subprocess.run(["redis-cli", "ping"], capture_output=True, text=True, timeout=2)
+            redis_running = result.stdout.strip() == "PONG"
+
+            if redis_running:
+                print("  Stopping Redis for restore...")
+                subprocess.run(["sudo", "systemctl", "stop", "redis-server"], check=True)
+                print("    ✓ Redis stopped")
+                import time
+                time.sleep(2)
+
+            # Find Redis data directory
+            result = subprocess.run(["redis-cli", "CONFIG", "GET", "dir"],
+                                  capture_output=True, text=True)
+            redis_dir = result.stdout.strip().split('\n')[1] if result.stdout else "/var/lib/redis"
+
+            redis_dir_path = Path(redis_dir)
+            redis_dest_file = redis_dir_path / "dump.rdb"
+
+            print(f"  Restoring to: {redis_dest_file}")
+
+            # Backup existing dump.rdb if it exists
+            if redis_dest_file.exists():
+                backup_name = f"dump.rdb.backup.{int(os.times().elapsed * 1000)}"
+                backup_path = redis_dest_file.parent / backup_name
+                print(f"  Backing up existing dump.rdb to {backup_name}")
+                if os.geteuid() == 0:
+                    shutil.copy2(redis_dest_file, backup_path)
+                else:
+                    subprocess.run(["sudo", "cp", str(redis_dest_file), str(backup_path)], check=True)
+
+            # Copy backup file to Redis directory
+            if os.geteuid() == 0:
+                shutil.copy2(redis_dump_file, redis_dest_file)
+                # Set proper ownership
+                subprocess.run(["chown", "redis:redis", str(redis_dest_file)], check=True)
+                subprocess.run(["chmod", "640", str(redis_dest_file)], check=True)
+            else:
+                subprocess.run(["sudo", "cp", str(redis_dump_file), str(redis_dest_file)], check=True)
+                subprocess.run(["sudo", "chown", "redis:redis", str(redis_dest_file)], check=True)
+                subprocess.run(["sudo", "chmod", "640", str(redis_dest_file)], check=True)
+
+            print(f"    ✓ Restored Redis dump.rdb")
+
+            # Restart Redis
+            if redis_running:
+                print("  Restarting Redis...")
+                subprocess.run(["sudo", "systemctl", "start", "redis-server"], check=True)
+                print("    ✓ Redis restarted")
+                import time
+                time.sleep(2)
+
+                # Verify Redis is working
+                result = subprocess.run(["redis-cli", "ping"], capture_output=True, text=True, timeout=2)
+                if result.stdout.strip() == "PONG":
+                    print("    ✓ Redis is responding")
+                else:
+                    print("    ⚠ Redis may not be responding properly")
+
+        except subprocess.CalledProcessError as e:
+            print(f"    ✗ Failed to restore Redis: {e.stderr if e.stderr else str(e)}")
+        except Exception as e:
+            print(f"    ✗ Unexpected error restoring Redis: {e}")
+
     def run(self):
         """Execute restore process."""
         print("=" * 60)
@@ -679,6 +762,9 @@ ALTER ROLE {username} WITH PASSWORD '{password}';
 
             if self.restore_all or self.options.postgresql_only:
                 self.restore_postgresql_databases()
+
+            if self.restore_all or getattr(self.options, 'redis_only', False):
+                self.restore_redis()
 
             if self.restore_all or self.options.neo4j_only:
                 self.restore_neo4j_databases()
@@ -742,6 +828,12 @@ def main():
         "--keycloak-only",
         action="store_true",
         help="Restore only Keycloak directory"
+    )
+
+    parser.add_argument(
+        "--redis-only",
+        action="store_true",
+        help="Restore only Redis database"
     )
 
     parser.add_argument(

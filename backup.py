@@ -333,6 +333,76 @@ class HiveMatrixBackup:
                     print(f"    ✗ Failed to restart Neo4j: {e}")
                     print(f"    Please restart manually: sudo systemctl start neo4j")
 
+    def backup_redis(self):
+        """Backup Redis database using redis-cli SAVE."""
+        print("\n=== Backing up Redis ===")
+        redis_backup_dir = self.temp_dir / "redis"
+        redis_backup_dir.mkdir(parents=True, exist_ok=True)
+
+        # Check if Redis is running
+        try:
+            result = subprocess.run(["redis-cli", "ping"], capture_output=True, text=True, timeout=2)
+            if result.stdout.strip() != "PONG":
+                print("  Redis not responding - skipping backup")
+                return
+        except Exception as e:
+            print(f"  Redis not available - skipping backup: {e}")
+            return
+
+        print("  Redis is running")
+
+        try:
+            # Force Redis to save current state to disk
+            print("  Forcing Redis to save to disk...")
+            subprocess.run(["redis-cli", "SAVE"], check=True, capture_output=True, text=True)
+            print("    ✓ Redis SAVE command completed")
+
+            # Find Redis dump file location
+            result = subprocess.run(["redis-cli", "CONFIG", "GET", "dir"],
+                                  capture_output=True, text=True, check=True)
+            redis_dir = result.stdout.strip().split('\n')[1] if result.stdout else "/var/lib/redis"
+
+            result = subprocess.run(["redis-cli", "CONFIG", "GET", "dbfilename"],
+                                  capture_output=True, text=True, check=True)
+            redis_dbfile = result.stdout.strip().split('\n')[1] if result.stdout else "dump.rdb"
+
+            redis_dump_path = Path(redis_dir) / redis_dbfile
+
+            if not redis_dump_path.exists():
+                print(f"  ⚠ Redis dump file not found: {redis_dump_path}")
+                print(f"    Checking alternate location /var/lib/redis/dump.rdb...")
+                redis_dump_path = Path("/var/lib/redis/dump.rdb")
+
+            if redis_dump_path.exists():
+                # Copy Redis dump file to backup
+                dest_file = redis_backup_dir / "dump.rdb"
+
+                if os.geteuid() == 0:
+                    # Running as root - can directly copy
+                    shutil.copy2(redis_dump_path, dest_file)
+                else:
+                    # Not root - use sudo to copy
+                    subprocess.run(["sudo", "cp", str(redis_dump_path), str(dest_file)], check=True)
+                    subprocess.run(["sudo", "chown", f"{os.getuid()}:{os.getgid()}", str(dest_file)], check=True)
+
+                size_kb = dest_file.stat().st_size / 1024
+                print(f"    ✓ Backed up Redis database ({size_kb:.2f} KB)")
+
+                # Also save Redis configuration
+                print("  Backing up Redis configuration...")
+                redis_info = subprocess.run(["redis-cli", "INFO"], capture_output=True, text=True, check=True)
+                info_file = redis_backup_dir / "redis_info.txt"
+                info_file.write_text(redis_info.stdout)
+                print(f"    ✓ Backed up Redis info")
+
+            else:
+                print(f"  ⚠ Could not find Redis dump file at {redis_dump_path}")
+
+        except subprocess.CalledProcessError as e:
+            print(f"    ✗ Failed to backup Redis: {e.stderr if e.stderr else str(e)}")
+        except Exception as e:
+            print(f"    ✗ Unexpected error backing up Redis: {e}")
+
     def backup_keycloak(self):
         """Backup Keycloak directory."""
         print("\n=== Backing up Keycloak ===")
@@ -504,6 +574,7 @@ class HiveMatrixBackup:
             self.create_temp_dir()
             self.backup_configs()
             self.backup_postgresql_databases()
+            self.backup_redis()
             self.backup_neo4j_databases()
             self.backup_keycloak()
             self.create_backup_archive()
@@ -545,6 +616,7 @@ def main():
         try:
             backup.backup_configs()
             backup.backup_postgresql_databases()
+            backup.backup_redis()
             backup.backup_neo4j_databases()
             backup.backup_keycloak()
         finally:

@@ -57,8 +57,9 @@ sudo tee "$SYSTEM_SERVICE_DIR/hivematrix.service" > /dev/null <<EOF
 [Unit]
 Description=HiveMatrix Orchestration System
 Documentation=https://github.com/skelhammer/hivematrix-helm
-After=network-online.target postgresql.service
+After=network-online.target postgresql.service redis-server.service redis.service
 Wants=network-online.target
+Requires=postgresql.service
 
 [Service]
 Type=simple
