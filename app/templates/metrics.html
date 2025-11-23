@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Metrics - Helm</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body>
+{% extends "layout.html" %}
+
+{% block title %}Metrics{% endblock %}
+
+{% block content %}
     <div class="container">
         <div class="card u-mb-3">
             <div class="card__header">
@@ -109,8 +105,10 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
-    <script>
+{% block scripts %}
+<script>
         function getBasePath() {
             const path = window.location.pathname;
             if (path.startsWith('/helm/')) {
@@ -131,9 +129,5 @@
 
         // Auto-refresh every 5 seconds
         setTimeout(() => location.reload(), 5000);
-    </script>
-    <div class="version-footer">
-        <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>
-    </div>
-</body>
-</html>
+</script>
+{% endblock %}

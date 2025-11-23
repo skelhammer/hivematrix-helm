@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Logs - HiveMatrix Helm</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body>
+{% extends "layout.html" %}
+
+{% block title %}System Logs{% endblock %}
+
+{% block content %}
     <div class="container">
         <div class="card u-mb-3">
             <div class="card__header">
@@ -90,9 +86,10 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
-
-    <script>
+{% block scripts %}
+<script>
         let isLive = true;
         let logs = [];
         let lastLogId = 0;
@@ -314,9 +311,5 @@
             lucide.createIcons();
             fetchLogs();
         });
-    </script>
-    <div class="version-footer">
-        <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>
-    </div>
-</body>
-</html>
+</script>
+{% endblock %}
