@@ -3,29 +3,30 @@
 {% block title %}User Management{% endblock %}
 
 {% block content %}
-    <div class="container">
-        <div class="card u-mb-3">
-            <div class="card__header">
-                <h1 class="card__title">User Management</h1>
-                <div class="card__header-actions">
-                    <button class="btn btn--primary" onclick="showCreateUserModal()">
-                        <span class="btn__label">
-                            <i data-lucide="user-plus" class="btn__icon"></i>
-                            Create New User
-                        </span>
-                    </button>
-                    <button class="btn" onclick="navigateTo('/')">
-                        <span class="btn__label">
-                            <i data-lucide="arrow-left" class="btn__icon"></i>
-                            Back to Dashboard
-                        </span>
-                    </button>
-                </div>
-            </div>
+    <div class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-header__title">User Management</h1>
         </div>
+        <div class="page-header__actions">
+            <button class="btn" onclick="navigateTo('/')">
+                <span class="btn__label">
+                    <i data-lucide="arrow-left" class="btn__icon"></i>
+                    Back to Dashboard
+                </span>
+            </button>
+        </div>
+    </div>
 
-        <div id="user-list" class="card">
-            <div class="card__body">
+    <div class="card">
+        <div class="card__body">
+            <button class="btn btn--primary u-mb-2" onclick="showCreateUserModal()">
+                <span class="btn__label">
+                    <i data-lucide="user-plus" class="btn__icon"></i>
+                    Create New User
+                </span>
+            </button>
+
+            <div id="user-list">
                 <p>Loading users...</p>
             </div>
         </div>
@@ -286,42 +287,63 @@
         async function displayUsers(users) {
             const container = document.getElementById('user-list');
             container.innerHTML = '';
-            const basePath = getBasePath();
 
-            for (const user of users) {
-                const userCard = document.createElement('div');
-                userCard.className = 'user-card';
-                userCard.onclick = () => editUser(user.id);
+            if (users.length === 0) {
+                container.innerHTML = '<p class="empty-state">No users found.</p>';
+                return;
+            }
 
-                // Fetch user's groups
-                let groupsHtml = '';
-                try {
-                    const groupsResponse = await fetch(`${basePath}/api/keycloak/users/${user.id}/groups`);
-                    const groupsData = await groupsResponse.json();
-                    const groups = groupsData.groups || [];
+            let html = `
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
 
-                    if (groups.length > 0) {
-                        groupsHtml = '<p>Groups: ' + groups.map(g =>
-                            `<span class="group-badge">${g.name}</span>`
-                        ).join(' ') + '</p>';
-                    } else {
-                        groupsHtml = '<p>Groups: <span class="u-text-muted">None</span></p>';
-                    }
-                } catch (error) {
-                    groupsHtml = '<p>Groups: <span class="u-text-muted">Error loading</span></p>';
-                }
+            users.forEach(user => {
+                const statusBadge = user.enabled
+                    ? '<span class="status-text status-text--success">Enabled</span>'
+                    : '<span class="status-text status-text--danger">Disabled</span>';
 
-                userCard.innerHTML = `
-                    <h3 class="user-card__name">${user.username}</h3>
-                    <div class="user-card__info">
-                        <p>Email: ${user.email || 'N/A'}</p>
-                        <p>Name: ${user.firstName || ''} ${user.lastName || ''}</p>
-                        <p>Status: <span class="status-text status-text--${user.enabled ? 'success' : 'danger'}">${user.enabled ? 'Enabled' : 'Disabled'}</span></p>
-                        ${groupsHtml}
-                    </div>
+                const fullName = [user.firstName, user.lastName].filter(n => n).join(' ') || '-';
+
+                html += `
+                    <tr>
+                        <td><strong>${user.username}</strong></td>
+                        <td>${fullName}</td>
+                        <td>${user.email || 'N/A'}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <button class="btn btn--small btn--primary" onclick="editUser('${user.id}')">
+                                <span class="btn__label">
+                                    <i data-lucide="edit-2" class="btn__icon"></i>
+                                    Edit
+                                </span>
+                            </button>
+                        </td>
+                    </tr>
                 `;
+            });
 
-                container.appendChild(userCard);
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = html;
+
+            // Re-initialize Lucide icons after creating table
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
             }
         }
 

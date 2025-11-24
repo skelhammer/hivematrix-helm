@@ -3,390 +3,452 @@
 {% block title %}Security Audit{% endblock %}
 
 {% block content %}
-    <div class="container">
-        <div class="card u-mb-3">
+    <div class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-header__title">Security Audit</h1>
+        </div>
+        <div class="page-header__actions">
+            <button class="btn" onclick="navigateTo('/')">
+                <span class="btn__label">
+                    <i data-lucide="arrow-left" class="btn__icon"></i>
+                    Back to Dashboard
+                </span>
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__body">
+            <p class="u-mb-2">Scan your HiveMatrix deployment for security vulnerabilities and configuration issues.</p>
+
+            <button class="btn btn--primary" onclick="runAudit()">
+                <span class="btn__label">
+                    <i data-lucide="shield-check" class="btn__icon"></i>
+                    Run Security Audit
+                </span>
+            </button>
+
+            <div id="loading" class="u-mt-3" style="display: none;">
+                <div class="u-flex u-items-center u-flex-gap">
+                    <i data-lucide="loader" class="btn__icon" style="animation: spin 1s linear infinite;"></i>
+                    <span>Running security audit...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="audit-results" style="display: none;">
+        <!-- Security Status Summary -->
+        <div class="card">
             <div class="card__header">
-                <h1 class="card__title">Security Audit</h1>
-                <div class="card__header-actions">
-                    <button class="btn btn--primary" onclick="runAudit()">
-                        <span class="btn__label">
-                            <i data-lucide="refresh-cw" class="btn__icon"></i>
-                            Run Audit
-                        </span>
-                    </button>
-                    <button class="btn" onclick="navigateTo('/')">
-                        <span class="btn__label">
-                            <i data-lucide="arrow-left" class="btn__icon"></i>
-                            Back to Dashboard
-                        </span>
-                    </button>
-                </div>
+                <h2 class="card__title">Security Status</h2>
+            </div>
+            <div class="card__body">
+                <div id="summary-content"></div>
+                <div id="firewall-status" class="u-mt-3"></div>
             </div>
         </div>
 
-        <div id="loading" class="loading is-hidden">
-            <p>Running security audit...</p>
-        </div>
-
-        <div id="audit-results" class="is-hidden">
-            <div class="card u-mb-3">
-                <div class="card__header">
-                    <h2 class="card__title">Security Status</h2>
-                </div>
-                <div class="card__body">
-                    <div id="summary-content" class="u-text-center">
-                    </div>
-                    <div id="firewall-status" class="u-mt-3">
-                    </div>
-                </div>
-            </div>
-
-            <div id="exposed-section" class="is-hidden u-mb-3">
-                <div class="card u-mb-3">
-                    <div class="card__header card__header--danger">
-                        <h2 class="card__title">EXPOSED SERVICES (HIGH RISK)</h2>
-                    </div>
-                    <div class="card__body">
-                        <div class="alert-box alert-danger">
-                            <strong>⚠️ Security Risk Detected!</strong>
-                            <p>The following services are listening on all network interfaces (0.0.0.0) and can be accessed from external networks. They should only be accessible on localhost (127.0.0.1).</p>
-                        </div>
-                        <ul id="exposed-list" class="service-list">
-                        </ul>
-                        <div class="u-mt-2">
-                            <h3>Immediate Actions Required:</h3>
-                            <ol>
-                                <li>Update service bindings to localhost (127.0.0.1)</li>
-                                <li>Apply firewall rules to block external access</li>
-                                <li>Restart affected services</li>
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="firewall-protected-section" class="is-hidden">
-                <div class="card u-mb-3">
-                    <div class="card__header card__header--success">
-                        <h2 class="card__title">FIREWALL PROTECTED</h2>
-                    </div>
-                    <div class="card__body">
-                        <div class="alert-box alert-success">
-                            <strong>✓ Protected by Firewall</strong>
-                            <p>These services are exposed on the network but external access is blocked by firewall rules.</p>
-                        </div>
-                        <ul id="firewall-protected-list" class="service-list">
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <div id="firewall-section-warn" class="is-hidden">
-                <div class="card u-mb-3">
-                    <div class="card__header card__header--warning">
-                        <h2 class="card__title">FIREWALL PROTECTION REQUIRED</h2>
-                    </div>
-                    <div class="card__body">
-                        <div class="alert-box alert-warning">
-                            <strong>ℹ️ Acceptable But Must Be Firewalled</strong>
-                            <p>These services (typically Java applications like Keycloak) can listen on 0.0.0.0, but external access MUST be blocked by firewall rules.</p>
-                        </div>
-                        <ul id="firewall-required-list" class="service-list">
-                        </ul>
-                        <div class="u-mt-2">
-                            <h3>Required Actions:</h3>
-                            <ol>
-                                <li>Download and apply firewall script (see below)</li>
-                                <li>Verify external access is blocked</li>
-                                <li>Test that services are accessible via Nexus</li>
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="secure-section" class="is-hidden">
-                <div class="card u-mb-3">
-                    <div class="card__header card__header--success">
-                        <h2 class="card__title">SECURE SERVICES</h2>
-                    </div>
-                    <div class="card__body">
-                        <p>These services are properly configured to listen only on localhost:</p>
-                        <ul id="secure-list" class="service-list">
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <div id="firewall-section" class="card u-mb-3">
-                <div class="card__header">
-                    <h2 class="card__title">Firewall Configuration</h2>
-                </div>
-                <div class="card__body">
-                    <p>Apply firewall rules to protect internal services from external access.</p>
-
-                    <div class="btn-group">
-                        <button class="btn btn--primary" onclick="generateFirewallScript('ufw')">
-                            <span class="btn__label">
-                                <i data-lucide="download" class="btn__icon"></i>
-                                Download UFW Script (Ubuntu/Debian)
-                            </span>
-                        </button>
-                        <button class="btn btn--primary" onclick="generateFirewallScript('iptables')">
-                            <span class="btn__label">
-                                <i data-lucide="download" class="btn__icon"></i>
-                                Download iptables Script
-                            </span>
-                        </button>
-                    </div>
-
-                    <div class="alert-box alert-warning">
-                        <strong>⚠️ Important:</strong>
-                        <ul class="u-my-1 u-pl-3">
-                            <li>Review the firewall script before applying</li>
-                            <li>Ensure you have SSH access (port 22 is allowed)</li>
-                            <li>Run the script with sudo: <code>sudo bash secure_firewall.sh</code></li>
-                        </ul>
-                    </div>
-
-                    <h3>What the firewall does:</h3>
-                    <ul>
-                        <li>✓ Allows SSH (port 22) for remote administration</li>
-                        <li>✓ Allows HTTPS (port 443) for Nexus web interface</li>
-                        <li>✗ Blocks all internal service ports (5000, 5004, 5010, 5020, 5030, 5040, 8080)</li>
-                    </ul>
-
-                    <h3>Manual firewall commands:</h3>
-                    <div class="code-box" id="firewall-commands">
-# Ubuntu/Debian (UFW)
-sudo ufw enable
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow 22/tcp  # SSH
-sudo ufw allow 443/tcp # HTTPS (Nexus)
-sudo ufw deny 5000/tcp # Core
-sudo ufw deny 5004/tcp # Helm
-sudo ufw deny 5010/tcp # Codex
-sudo ufw deny 5020/tcp # KnowledgeTree
-sudo ufw deny 5030/tcp # Ledger
-sudo ufw deny 5040/tcp # Template
-sudo ufw deny 8080/tcp # Keycloak
-sudo ufw status
-                    </div>
-                </div>
-            </div>
-
+        <!-- Exposed Services (High Risk) -->
+        <div id="exposed-section" style="display: none;">
             <div class="card">
                 <div class="card__header">
-                    <h2 class="card__title">Security Recommendations</h2>
+                    <h2 class="card__title">
+                        <i data-lucide="alert-triangle" class="btn__icon" style="color: var(--color-danger);"></i>
+                        Exposed Services (High Risk)
+                    </h2>
                 </div>
                 <div class="card__body">
-                    <h3>Production Deployment Checklist:</h3>
-                    <ul class="u-lh-2">
-                        <li>□ All services bound to localhost (except Nexus on 443)</li>
-                        <li>□ Firewall configured and enabled</li>
-                        <li>□ Change default Keycloak admin password</li>
-                        <li>□ Change default HiveMatrix admin password</li>
-                        <li>□ Use valid SSL certificate (not self-signed) for Nexus</li>
-                        <li>□ Enable Keycloak security features (brute force detection)</li>
-                        <li>□ Configure fail2ban for SSH protection</li>
-                        <li>□ Regular system security updates</li>
-                        <li>□ Regular database backups</li>
-                        <li>□ Monitor logs for suspicious activity</li>
-                    </ul>
-
-                    <p><strong>Documentation:</strong> See <code>SECURITY.md</code> for detailed security configuration guide.</p>
+                    <div class="alert alert--danger u-mb-3">
+                        <strong>Security Risk Detected!</strong>
+                        <p>The following services are accessible from external networks and should only be accessible on localhost.</p>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Port</th>
+                                    <th>Binding</th>
+                                    <th>Issue</th>
+                                </tr>
+                            </thead>
+                            <tbody id="exposed-list"></tbody>
+                        </table>
+                    </div>
+                    <div class="u-mt-3">
+                        <h3>Immediate Actions Required:</h3>
+                        <ol>
+                            <li>Update service bindings to localhost (127.0.0.1)</li>
+                            <li>Apply firewall rules to block external access</li>
+                            <li>Restart affected services</li>
+                        </ol>
+                    </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Firewall Protected Services -->
+        <div id="firewall-protected-section" style="display: none;">
+            <div class="card">
+                <div class="card__header">
+                    <h2 class="card__title">
+                        <i data-lucide="shield" class="btn__icon" style="color: var(--color-success);"></i>
+                        Firewall Protected
+                    </h2>
+                </div>
+                <div class="card__body">
+                    <div class="alert alert--success u-mb-3">
+                        <strong>Protected by Firewall</strong>
+                        <p>These services are exposed on the network but external access is blocked by firewall rules.</p>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Port</th>
+                                    <th>Binding</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="firewall-protected-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Firewall Protection Required -->
+        <div id="firewall-section-warn" style="display: none;">
+            <div class="card">
+                <div class="card__header">
+                    <h2 class="card__title">
+                        <i data-lucide="alert-circle" class="btn__icon" style="color: var(--color-warning);"></i>
+                        Firewall Protection Required
+                    </h2>
+                </div>
+                <div class="card__body">
+                    <div class="alert alert--warning u-mb-3">
+                        <strong>Firewall Protection Recommended</strong>
+                        <p>These services can listen on 0.0.0.0, but external access MUST be blocked by firewall rules.</p>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Port</th>
+                                    <th>Binding</th>
+                                    <th>Issue</th>
+                                </tr>
+                            </thead>
+                            <tbody id="firewall-required-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Secure Services -->
+        <div id="secure-section" style="display: none;">
+            <div class="card">
+                <div class="card__header">
+                    <h2 class="card__title">
+                        <i data-lucide="check-circle" class="btn__icon" style="color: var(--color-success);"></i>
+                        Secure Services
+                    </h2>
+                </div>
+                <div class="card__body">
+                    <p class="u-mb-2">These services are properly configured to listen only on localhost:</p>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Port</th>
+                                    <th>Binding</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="secure-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Firewall Configuration -->
+        <div class="card">
+            <div class="card__header">
+                <h2 class="card__title">Firewall Configuration</h2>
+            </div>
+            <div class="card__body">
+                <p class="u-mb-3">Apply firewall rules to protect internal services from external access.</p>
+
+                <div class="u-flex u-flex-gap u-mb-3">
+                    <button class="btn btn--primary" onclick="generateFirewallScript('ufw')">
+                        <span class="btn__label">
+                            <i data-lucide="download" class="btn__icon"></i>
+                            Download UFW Script
+                        </span>
+                    </button>
+                    <button class="btn btn--primary" onclick="generateFirewallScript('iptables')">
+                        <span class="btn__label">
+                            <i data-lucide="download" class="btn__icon"></i>
+                            Download iptables Script
+                        </span>
+                    </button>
+                </div>
+
+                <div class="alert alert--warning u-mb-3">
+                    <strong>Important:</strong>
+                    <ul class="u-my-1 u-pl-3">
+                        <li>Review the firewall script before applying</li>
+                        <li>Ensure you have SSH access (port 22 is allowed)</li>
+                        <li>Run the script with sudo: <code>sudo bash secure_firewall.sh</code></li>
+                    </ul>
+                </div>
+
+                <h3>Firewall Protection:</h3>
+                <ul class="u-mb-3">
+                    <li>✓ Allows SSH (port 22) for remote administration</li>
+                    <li>✓ Allows HTTPS (port 443) for Nexus web interface</li>
+                    <li>✗ Blocks all internal service ports (5000, 5004, 5010, 5020, 5030, 5040, 8080)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Security Recommendations -->
+        <div class="card">
+            <div class="card__header">
+                <h2 class="card__title">Security Recommendations</h2>
+            </div>
+            <div class="card__body">
+                <h3>Production Deployment Checklist:</h3>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>All services bound to localhost (except Nexus on 443)</td><td>□</td></tr>
+                            <tr><td>Firewall configured and enabled</td><td>□</td></tr>
+                            <tr><td>Change default Keycloak admin password</td><td>□</td></tr>
+                            <tr><td>Change default HiveMatrix admin password</td><td>□</td></tr>
+                            <tr><td>Use valid SSL certificate (not self-signed) for Nexus</td><td>□</td></tr>
+                            <tr><td>Enable Keycloak security features (brute force detection)</td><td>□</td></tr>
+                            <tr><td>Configure fail2ban for SSH protection</td><td>□</td></tr>
+                            <tr><td>Regular system security updates</td><td>□</td></tr>
+                            <tr><td>Regular database backups</td><td>□</td></tr>
+                            <tr><td>Monitor logs for suspicious activity</td><td>□</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="u-mt-3"><strong>Documentation:</strong> See <code>SECURITY.md</code> for detailed security configuration guide.</p>
             </div>
         </div>
     </div>
 {% endblock %}
 
 {% block scripts %}
+<style>
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+</style>
+
 <script>
-        function getBasePath() {
-            const path = window.location.pathname;
-            if (path.startsWith('/helm/')) {
-                return '/helm';
-            }
-            return '';
+    function getBasePath() {
+        const path = window.location.pathname;
+        if (path.startsWith('/helm/')) {
+            return '/helm';
+        }
+        return '';
+    }
+
+    function navigateTo(path) {
+        const basePath = getBasePath();
+        window.location.href = basePath + path;
+    }
+
+    function runAudit() {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('audit-results').style.display = 'none';
+
+        const basePath = getBasePath();
+        fetch(`${basePath}/api/security/audit`)
+            .then(response => response.json())
+            .then(data => {
+                displayResults(data);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('audit-results').style.display = 'block';
+                lucide.createIcons();
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = 'none';
+                alert('Error running security audit: ' + error);
+            });
+    }
+
+    function displayResults(findings) {
+        // Display summary
+        const summary = document.getElementById('summary-content');
+        const severity = findings.severity.toUpperCase();
+        let severityColor = 'var(--color-success)';
+        let message = 'All services are properly secured!';
+
+        if (severity === 'HIGH' || severity === 'CRITICAL') {
+            severityColor = 'var(--color-danger)';
+            message = 'Security issues detected! Immediate action required.';
+        } else if (severity === 'MEDIUM') {
+            severityColor = 'var(--color-warning)';
+            message = 'Firewall protection recommended.';
+        } else if (severity === 'LOW') {
+            severityColor = 'var(--color-warning)';
+            message = 'Minor security concerns detected.';
         }
 
-        function navigateTo(path) {
-            const basePath = getBasePath();
-            window.location.href = basePath + path;
-        }
+        const totalServices = findings.exposed_services.length +
+                             findings.secure_services.length +
+                             findings.firewall_required.length +
+                             findings.firewall_protected.length +
+                             findings.not_running.length +
+                             findings.unknown_services.length;
 
-        function runAudit() {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('audit-results').style.display = 'none';
+        summary.innerHTML = `
+            <div class="stats-grid" style="margin-bottom: 1rem;">
+                <div class="stat-card">
+                    <div class="stat-card__label">Overall Status</div>
+                    <div class="stat-card__value" style="color: ${severityColor};">${message}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__label">Severity Level</div>
+                    <div class="stat-card__value" style="color: ${severityColor};">${severity}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__label">Services Checked</div>
+                    <div class="stat-card__value">${totalServices}</div>
+                </div>
+            </div>
+        `;
 
-            const basePath = getBasePath();
-            fetch(`${basePath}/api/security/audit`)
-                .then(response => response.json())
-                .then(data => {
-                    displayResults(data);
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('audit-results').style.display = 'block';
-                })
-                .catch(error => {
-                    document.getElementById('loading').style.display = 'none';
-                    alert('Error running security audit: ' + error);
-                });
-        }
-
-        function displayResults(findings) {
-            // Display summary
-            const summary = document.getElementById('summary-content');
-            const severity = findings.severity.toUpperCase();
-            let icon = '✓';
-            let iconClass = 'icon-secure';
-            let message = 'All services are properly secured!';
-
-            if (severity === 'HIGH' || severity === 'CRITICAL') {
-                icon = '⚠️';
-                iconClass = 'icon-danger';
-                message = 'Security issues detected! Immediate action required.';
-            } else if (severity === 'MEDIUM') {
-                icon = '⚠';
-                iconClass = 'icon-warning';
-                message = 'Firewall protection recommended.';
-            } else if (severity === 'LOW') {
-                icon = '⚠';
-                iconClass = 'icon-warning';
-                message = 'Minor security concerns detected.';
-            }
-
-            const totalServices = findings.exposed_services.length +
-                                 findings.secure_services.length +
-                                 findings.firewall_required.length +
-                                 findings.firewall_protected.length +
-                                 findings.not_running.length +
-                                 findings.unknown_services.length;
-
-            summary.innerHTML = `
-                <div class="security-icon ${iconClass}">${icon}</div>
-                <h3>${message}</h3>
-                <p>Overall Severity: <span class="severity-badge severity-${severity.toLowerCase()}">${severity}</span></p>
-                <p>Services Checked: ${totalServices}</p>
+        // Display firewall status
+        const firewallStatus = document.getElementById('firewall-status');
+        if (findings.firewall_status && findings.firewall_status.active) {
+            const protectedPorts = findings.firewall_status.protected_ports.sort((a, b) => a - b).join(', ');
+            firewallStatus.className = 'alert alert--success';
+            firewallStatus.innerHTML = `
+                <strong>Firewall Active:</strong> ${findings.firewall_status.type.toUpperCase()}<br>
+                <strong>Protected Ports:</strong> ${protectedPorts}
             `;
-
-            // Display firewall status
-            const firewallStatus = document.getElementById('firewall-status');
-            firewallStatus.className = '';
-            if (findings.firewall_status && findings.firewall_status.active) {
-                const protectedPorts = findings.firewall_status.protected_ports.sort((a, b) => a - b).join(', ');
-                firewallStatus.className = 'alert-box alert-success';
-                firewallStatus.innerHTML = `
-                    <h4>Firewall Status</h4>
-                    <p>
-                        <strong>Status:</strong> Active (${findings.firewall_status.type.toUpperCase()})<br>
-                        <strong>Protected Ports:</strong> ${protectedPorts}
-                    </p>
-                `;
-            } else {
-                firewallStatus.className = 'alert-box alert-warning';
-                firewallStatus.innerHTML = `
-                    <h4>Firewall Status</h4>
-                    <p>
-                        <strong>Status:</strong> Not detected or inactive<br>
-                        Firewall protection is recommended for production deployments.
-                    </p>
-                `;
-            }
-
-            // Display exposed services
-            if (findings.exposed_services && findings.exposed_services.length > 0) {
-                document.getElementById('exposed-section').style.display = 'block';
-                const exposedList = document.getElementById('exposed-list');
-                exposedList.innerHTML = findings.exposed_services.map(svc => `
-                    <li class="exposed">
-                        <strong>${svc.service.toUpperCase()}</strong> - Port ${svc.port}<br>
-                        <span class="u-text-danger">Binding: ${svc.binding}</span><br>
-                        <small>${svc.issue}</small>
-                    </li>
-                `).join('');
-            } else {
-                document.getElementById('exposed-section').style.display = 'none';
-            }
-
-            // Display firewall-protected services
-            if (findings.firewall_protected && findings.firewall_protected.length > 0) {
-                document.getElementById('firewall-protected-section').style.display = 'block';
-                const protectedList = document.getElementById('firewall-protected-list');
-                protectedList.innerHTML = findings.firewall_protected.map(svc => `
-                    <li class="secure">
-                        <strong>${svc.service.toUpperCase()}</strong> - Port ${svc.port}<br>
-                        <span class="u-text-success">🛡️ Binding: ${svc.binding}</span><br>
-                        <small>${svc.info}</small>
-                    </li>
-                `).join('');
-            } else {
-                document.getElementById('firewall-protected-section').style.display = 'none';
-            }
-
-            // Display firewall-required services
-            if (findings.firewall_required && findings.firewall_required.length > 0) {
-                document.getElementById('firewall-section-warn').style.display = 'block';
-                const firewallList = document.getElementById('firewall-required-list');
-                firewallList.innerHTML = findings.firewall_required.map(svc => `
-                    <li class="warning">
-                        <strong>${svc.service.toUpperCase()}</strong> - Port ${svc.port}<br>
-                        <span class="u-text-warning">⚠ Binding: ${svc.binding}</span><br>
-                        <small>${svc.issue}</small>
-                    </li>
-                `).join('');
-            } else {
-                document.getElementById('firewall-section-warn').style.display = 'none';
-            }
-
-            // Display secure services
-            if (findings.secure_services.length > 0) {
-                document.getElementById('secure-section').style.display = 'block';
-                const secureList = document.getElementById('secure-list');
-                secureList.innerHTML = findings.secure_services.map(svc => `
-                    <li class="secure">
-                        <strong>${svc.service}</strong> - Port ${svc.port}<br>
-                        <span class="u-text-success">✓ Binding: ${svc.binding}</span><br>
-                        <small>${svc.status}</small>
-                    </li>
-                `).join('');
-            } else {
-                document.getElementById('secure-section').style.display = 'none';
-            }
+        } else {
+            firewallStatus.className = 'alert alert--warning';
+            firewallStatus.innerHTML = `
+                <strong>Firewall Status:</strong> Not detected or inactive<br>
+                Firewall protection is recommended for production deployments.
+            `;
         }
 
-        function generateFirewallScript(type) {
-            const basePath = getBasePath();
-            fetch(`${basePath}/api/security/firewall-script?type=${type}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        downloadFile(data.filename, data.script);
-                        alert(`Firewall script generated: ${data.filename}\n\nTo apply:\n1. Review the script\n2. Run: sudo bash ${data.filename}`);
-                    } else {
-                        alert('Error: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    alert('Error generating firewall script: ' + error);
-                });
+        // Display exposed services
+        if (findings.exposed_services && findings.exposed_services.length > 0) {
+            document.getElementById('exposed-section').style.display = 'block';
+            const exposedList = document.getElementById('exposed-list');
+            exposedList.innerHTML = findings.exposed_services.map(svc => `
+                <tr>
+                    <td><strong>${svc.service.toUpperCase()}</strong></td>
+                    <td>${svc.port}</td>
+                    <td><span class="status-text status-text--danger">${svc.binding}</span></td>
+                    <td>${svc.issue}</td>
+                </tr>
+            `).join('');
+        } else {
+            document.getElementById('exposed-section').style.display = 'none';
         }
 
-        function downloadFile(filename, content) {
-            const element = document.createElement('a');
-            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
-            element.setAttribute('download', filename);
-            element.style.display = 'none';
-            document.body.appendChild(element);
-            element.click();
-            document.body.removeChild(element);
+        // Display firewall-protected services
+        if (findings.firewall_protected && findings.firewall_protected.length > 0) {
+            document.getElementById('firewall-protected-section').style.display = 'block';
+            const protectedList = document.getElementById('firewall-protected-list');
+            protectedList.innerHTML = findings.firewall_protected.map(svc => `
+                <tr>
+                    <td><strong>${svc.service.toUpperCase()}</strong></td>
+                    <td>${svc.port}</td>
+                    <td><span class="status-text status-text--success">${svc.binding}</span></td>
+                    <td>${svc.info}</td>
+                </tr>
+            `).join('');
+        } else {
+            document.getElementById('firewall-protected-section').style.display = 'none';
         }
 
-        // Auto-run audit on page load
-        window.addEventListener('load', () => {
-            lucide.createIcons();
-            runAudit();
-        });
+        // Display firewall-required services
+        if (findings.firewall_required && findings.firewall_required.length > 0) {
+            document.getElementById('firewall-section-warn').style.display = 'block';
+            const firewallList = document.getElementById('firewall-required-list');
+            firewallList.innerHTML = findings.firewall_required.map(svc => `
+                <tr>
+                    <td><strong>${svc.service.toUpperCase()}</strong></td>
+                    <td>${svc.port}</td>
+                    <td><span class="status-text status-text--warning">${svc.binding}</span></td>
+                    <td>${svc.issue}</td>
+                </tr>
+            `).join('');
+        } else {
+            document.getElementById('firewall-section-warn').style.display = 'none';
+        }
+
+        // Display secure services
+        if (findings.secure_services.length > 0) {
+            document.getElementById('secure-section').style.display = 'block';
+            const secureList = document.getElementById('secure-list');
+            secureList.innerHTML = findings.secure_services.map(svc => `
+                <tr>
+                    <td><strong>${svc.service}</strong></td>
+                    <td>${svc.port}</td>
+                    <td><span class="status-text status-text--success">${svc.binding}</span></td>
+                    <td>${svc.status}</td>
+                </tr>
+            `).join('');
+        } else {
+            document.getElementById('secure-section').style.display = 'none';
+        }
+    }
+
+    function generateFirewallScript(type) {
+        const basePath = getBasePath();
+        fetch(`${basePath}/api/security/firewall-script?type=${type}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    downloadFile(data.filename, data.script);
+                    alert(`Firewall script generated: ${data.filename}\n\nTo apply:\n1. Review the script\n2. Run: sudo bash ${data.filename}`);
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Error generating firewall script: ' + error);
+            });
+    }
+
+    function downloadFile(filename, content) {
+        const element = document.createElement('a');
+        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
+        element.setAttribute('download', filename);
+        element.style.display = 'none';
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+    }
+
+    // Initialize icons on page load
+    window.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+    });
 </script>
 {% endblock %}

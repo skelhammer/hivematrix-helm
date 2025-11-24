@@ -3,20 +3,21 @@
 {% block title %}Metrics{% endblock %}
 
 {% block content %}
-    <div class="container">
-        <div class="card u-mb-3">
-            <div class="card__header">
-                <h1 class="card__title">Performance Metrics</h1>
-                <div class="card__header-actions">
-                    <button class="btn" onclick="navigateTo('/')">
-                        <span class="btn__label">
-                            <i data-lucide="arrow-left" class="btn__icon"></i>
-                            Back to Dashboard
-                        </span>
-                    </button>
-                </div>
-            </div>
+    <div class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-header__title">Performance Metrics</h1>
         </div>
+        <div class="page-header__actions">
+            <button class="btn" onclick="navigateTo('/')">
+                <span class="btn__label">
+                    <i data-lucide="arrow-left" class="btn__icon"></i>
+                    Back to Dashboard
+                </span>
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
 
         <div class="card u-mb-3">
             <div class="card__header">
@@ -92,16 +93,6 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card__header">
-                <h2 class="card__title">System Information</h2>
-            </div>
-            <div class="card__body">
-                <p><em>Historical metrics and charts would go here.</em></p>
-                <p>Use the API endpoint <code>/api/metrics/&lt;service_name&gt;</code> to retrieve time-series data.</p>
             </div>
         </div>
     </div>

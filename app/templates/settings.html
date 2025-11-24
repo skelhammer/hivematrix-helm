@@ -3,23 +3,17 @@
 {% block title %}Settings{% endblock %}
 
 {% block content %}
-    <div class="card u-mb-3">
-        <div class="card__header">
-            <h1 class="card__title">System Settings</h1>
-            <div class="card__header-actions">
-                <button type="button" class="btn btn--primary" onclick="document.getElementById('settings-form').submit()">
-                    <span class="btn__label">
-                        <i data-lucide="save" class="btn__icon"></i>
-                        Save Settings
-                    </span>
-                </button>
-                <button class="btn" onclick="window.location.href='{{ url_for('index') }}'">
-                    <span class="btn__label">
-                        <i data-lucide="arrow-left" class="btn__icon"></i>
-                        Back to Dashboard
-                    </span>
-                </button>
-            </div>
+    <div class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-header__title">System Settings</h1>
+        </div>
+        <div class="page-header__actions">
+            <button class="btn" onclick="window.location.href='{{ url_for('index') }}'">
+                <span class="btn__label">
+                    <i data-lucide="arrow-left" class="btn__icon"></i>
+                    Back to Dashboard
+                </span>
+            </button>
         </div>
     </div>
 
@@ -82,6 +76,15 @@
                         <option value="CRITICAL" {{ 'selected' if current_level == 'CRITICAL' else '' }}>CRITICAL</option>
                     </select>
                     <small class="u-text-muted">Logging verbosity for all services.</small>
+                </div>
+
+                <div class="u-mt-3">
+                    <button type="button" class="btn btn--primary" onclick="document.getElementById('settings-form').submit()">
+                        <span class="btn__label">
+                            <i data-lucide="save" class="btn__icon"></i>
+                            Save Settings
+                        </span>
+                    </button>
                 </div>
             </div>
         </div>
