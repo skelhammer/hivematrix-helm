@@ -4,13 +4,12 @@
 
 {% block content %}
 <div class="container">
+        <div class="page-header">
+            <h1 class="page-header__title">Helm - Service Manager</h1>
+            <p class="page-header__description">Monitor and manage all HiveMatrix services, view logs, and configure security settings.</p>
+        </div>
+
         <div class="card u-mb-3">
-            <div class="card__header">
-                <div>
-                    <h1 class="card__title u-mb-0">Helm - Service Manager</h1>
-                    <p class="u-text-muted u-text-sm u-mb-0">Monitor and manage all HiveMatrix services, view logs, and configure security settings.</p>
-                </div>
-            </div>
             <div class="card__body">
                 <p class="u-mb-3">Welcome, <strong>{{ user.name }}</strong> ({{ user.permission_level }})</p>
 
