@@ -4,10 +4,23 @@
 
 {% block content %}
     <div class="container">
+        <div class="page-header">
+            <div class="page-header__content">
+                <h1 class="page-header__title">System Logs</h1>
+            </div>
+            <div class="page-header__actions">
+                <button class="btn" onclick="navigateTo('/')">
+                    <span class="btn__label">
+                        <i data-lucide="arrow-left" class="btn__icon"></i>
+                        Back to Dashboard
+                    </span>
+                </button>
+            </div>
+        </div>
+
         <div class="card u-mb-3">
             <div class="card__header">
                 <div class="u-flex u-items-center u-flex-gap-2">
-                    <h1 class="card__title u-m-0">System Logs</h1>
                     <div class="logs-status">
                         <span class="status-dot" id="liveStatus"></span>
                         <span id="statusText">Connecting...</span>
@@ -24,12 +37,6 @@
                         <span class="btn__label">
                             <i data-lucide="pause" class="btn__icon" id="liveToggleIcon"></i>
                             <span id="liveToggleText">Pause</span>
-                        </span>
-                    </button>
-                    <button class="btn" onclick="navigateTo('/')">
-                        <span class="btn__label">
-                            <i data-lucide="arrow-left" class="btn__icon"></i>
-                            Back to Dashboard
                         </span>
                     </button>
                 </div>
