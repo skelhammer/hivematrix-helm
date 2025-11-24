@@ -341,36 +341,8 @@ else
     echo -e "${GREEN}✓ Keycloak already installed${NC}"
 fi
 
-# Ensure Keycloak is in services.json
-if [ -f "services.json" ]; then
-    if ! grep -q '"keycloak"' services.json; then
-        echo -e "${YELLOW}Adding Keycloak to services.json...${NC}"
-        python3 << EOF
-import json
-
-with open('services.json', 'r') as f:
-    services = json.load(f)
-
-if 'keycloak' not in services:
-    # Create new dict with keycloak first
-    new_services = {
-        'keycloak': {
-            'url': 'http://localhost:8080',
-            'path': '../keycloak-${KEYCLOAK_VERSION}',
-            'port': 8080,
-            'type': 'keycloak',
-            'start_command': 'bin/kc.sh start-dev'
-        }
-    }
-    # Add all other services
-    new_services.update(services)
-
-    with open('services.json', 'w') as f:
-        json.dump(new_services, f, indent=2)
-EOF
-        echo -e "${GREEN}✓ Keycloak added to services.json${NC}"
-    fi
-fi
+# Note: Keycloak configuration is now handled by update-config below (line ~650)
+# This legacy code block has been removed to prevent corrupting services.json
 echo ""
 
 # === CLONE CORE, NEXUS, AND CODEX ===

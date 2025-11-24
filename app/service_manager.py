@@ -101,6 +101,13 @@ class ServiceManager:
     def get_service_config(service_name):
         """Get configuration for a specific service"""
         services = current_app.config.get('SERVICES', {})
+
+        # If service not found OR if service doesn't have path field, reload config
+        if service_name not in services or 'path' not in services.get(service_name, {}):
+            print(f"Service config missing or incomplete for {service_name}, reloading from disk...")
+            ServiceManager.reload_services_config()
+            services = current_app.config.get('SERVICES', {})
+
         if service_name not in services:
             raise ValueError(f"Service '{service_name}' not found in configuration")
         return services[service_name]
