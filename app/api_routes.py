@@ -9,8 +9,12 @@ from app.service_manager import ServiceManager
 from extensions import db
 from models import LogEntry, ServiceStatus, ServiceMetric
 from datetime import datetime, timedelta, timezone
+import re
 import sys
 import os
+
+# Valid service name pattern (alphanumeric, hyphens, underscores, 1-50 chars)
+SERVICE_NAME_PATTERN = re.compile(r'^[a-z0-9_-]{1,50}$')
 
 # Health check library
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -137,8 +141,11 @@ def restart_service(service_name):
 # Log Ingestion API
 # ============================================================
 
+# Maximum logs per request to prevent abuse
+MAX_LOGS_PER_REQUEST = 10000
+
 @app.route('/api/logs/ingest', methods=['POST'])
-@limiter.exempt
+@limiter.limit("1000 per minute")  # Rate limit log ingestion to prevent abuse
 @token_required
 def ingest_logs():
     """
@@ -173,15 +180,30 @@ def ingest_logs():
     if not service_name:
         return {'error': 'service_name is required'}, 400
 
+    # Validate service_name format to prevent injection/abuse
+    if not SERVICE_NAME_PATTERN.match(service_name):
+        app.logger.warning(f'Invalid service_name format in log ingestion: {service_name[:100]}')
+        return {'error': 'Invalid service_name format'}, 400
+
     logs = data.get('logs', [])
+
+    # Enforce maximum batch size
+    if len(logs) > MAX_LOGS_PER_REQUEST:
+        return {'error': f'Maximum {MAX_LOGS_PER_REQUEST} logs per request'}, 400
+
     ingested = 0
 
     try:
         for log_data in logs:
+            # Validate log level
+            level = log_data.get('level', 'INFO').upper()
+            if level not in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'):
+                level = 'INFO'
+
             log_entry = LogEntry(
                 service_name=service_name,
-                level=log_data.get('level', 'INFO'),
-                message=log_data.get('message', ''),
+                level=level,
+                message=log_data.get('message', '')[:10000],  # Limit message length
                 context=log_data.get('context'),
                 trace_id=log_data.get('trace_id'),
                 user_id=log_data.get('user_id'),

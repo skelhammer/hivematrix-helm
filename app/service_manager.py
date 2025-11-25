@@ -24,20 +24,76 @@ class ServiceManager:
     """Manages HiveMatrix services"""
 
     @staticmethod
+    def ensure_services_config():
+        """
+        Ensure helm_services.json exists with full config.
+        Auto-regenerates if missing.
+        """
+        helm_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        helm_services_file = os.path.join(helm_dir, 'helm_services.json')
+
+        if not os.path.exists(helm_services_file):
+            print("helm_services.json not found, generating...")
+            ServiceManager._regenerate_services_json(helm_dir)
+            return
+
+        try:
+            with open(helm_services_file, 'r') as f:
+                services = json.load(f)
+
+            # Check if any service is missing required fields
+            needs_update = False
+            for name, config in services.items():
+                if 'path' not in config or 'port' not in config:
+                    needs_update = True
+                    break
+
+            if needs_update:
+                print("helm_services.json is missing required fields, regenerating...")
+                ServiceManager._regenerate_services_json(helm_dir)
+
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Error reading helm_services.json: {e}, regenerating...")
+            ServiceManager._regenerate_services_json(helm_dir)
+
+    @staticmethod
+    def _regenerate_services_json(helm_dir):
+        """Run install_manager.py update-config to regenerate service configs"""
+        python_bin = os.path.join(helm_dir, "pyenv", "bin", "python")
+
+        if not os.path.exists(python_bin):
+            python_bin = "python3"
+
+        result = subprocess.run(
+            [python_bin, "install_manager.py", "update-config"],
+            cwd=helm_dir,
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode == 0:
+            print("✓ Service configuration regenerated successfully")
+        else:
+            print(f"Warning: Failed to regenerate service config: {result.stderr}")
+
+    @staticmethod
     def reload_services_config():
-        """Reload services configuration from services.json"""
+        """Reload services configuration from helm_services.json"""
         try:
             helm_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            services_file = os.path.join(helm_dir, 'services.json')
+            helm_services_file = os.path.join(helm_dir, 'helm_services.json')
 
-            if os.path.exists(services_file):
-                with open(services_file, 'r') as f:
+            # Ensure config is valid before loading
+            ServiceManager.ensure_services_config()
+
+            if os.path.exists(helm_services_file):
+                with open(helm_services_file, 'r') as f:
                     services = json.load(f)
                     current_app.config['SERVICES'] = services
                     print(f"✓ Reloaded services configuration: {list(services.keys())}")
                     return True
             else:
-                print("WARNING: services.json not found")
+                print("WARNING: helm_services.json not found")
                 return False
         except Exception as e:
             print(f"ERROR: Failed to reload services config: {e}")
@@ -46,56 +102,32 @@ class ServiceManager:
     @staticmethod
     def sync_master_services_config(service_path):
         """
-        Syncs the master services configuration to a service's directory.
-        This ensures all services have a consistent view of the ecosystem.
+        Ensures service has access to services.json (via symlink or copy).
+
+        services.json contains URLs and visibility flags for all services.
+        Most services should have a symlink to hivematrix-helm/services.json.
         """
-        # Path to master config
         helm_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         master_config_path = os.path.join(helm_dir, 'services.json')
 
         if not os.path.exists(master_config_path):
             return  # No master config to sync
 
-        # Target services.json in the service directory
         target_config_path = os.path.join(service_path, 'services.json')
+        service_name = os.path.basename(service_path)
 
-        # Skip if target is a symlink (prevents overwriting master config)
+        # If target is already a symlink, nothing to do
         if os.path.islink(target_config_path):
-            print(f"  ✓ {os.path.basename(service_path)} uses symlink to master config")
+            print(f"  ✓ {service_name} uses symlink to services.json")
             return
 
+        # If target exists as a regular file, copy the master config
+        # (This handles services that don't use symlinks)
         try:
-            # Load master config
-            with open(master_config_path, 'r') as f:
-                master_config = json.load(f)
-
-            # Create simplified version for services (just url)
-            # Filter out internal services for user-facing services like Nexus
-            simplified_config = {}
-            service_dir_name = os.path.basename(service_path)
-
-            for service_name, service_info in master_config.items():
-                # For Nexus, include visible and admin_only fields for sidebar filtering
-                if service_dir_name == 'hivematrix-nexus':
-                    simplified_config[service_name] = {
-                        "url": service_info["url"],
-                        "visible": service_info.get('visible', True),
-                        "admin_only": service_info.get('admin_only', False),
-                        "billing_or_admin_only": service_info.get('billing_or_admin_only', False)
-                    }
-                else:
-                    # For other services, include just URL
-                    simplified_config[service_name] = {
-                        "url": service_info["url"]
-                    }
-
-            # Write to service's services.json
-            with open(target_config_path, 'w') as f:
-                json.dump(simplified_config, f, indent=4)
-
-            print(f"  ✓ Synced services config to {os.path.basename(service_path)}")
+            shutil.copy2(master_config_path, target_config_path)
+            print(f"  ✓ Copied services.json to {service_name}")
         except Exception as e:
-            print(f"  Warning: Could not sync services config: {e}")
+            print(f"  Warning: Could not sync services.json to {service_name}: {e}")
 
     @staticmethod
     def get_service_config(service_name):
@@ -194,7 +226,8 @@ class ServiceManager:
         abs_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', service_path))
 
         if not os.path.exists(abs_path):
-            return {'success': False, 'message': f'Service directory not found: {abs_path}'}
+            app.logger.error(f"Service directory not found for {service_name}: {abs_path}")
+            return {'success': False, 'message': 'Service directory not found'}
 
         # Check if already running
         existing_pid = ServiceManager.find_service_process(service_name, port)
@@ -220,12 +253,13 @@ class ServiceManager:
                 cmd_path = os.path.join(abs_path, cmd_parts[0])
 
                 if not os.path.exists(cmd_path):
-                    return {'success': False, 'message': f'Keycloak executable not found: {cmd_path}'}
+                    app.logger.error(f"Keycloak executable not found: {cmd_path}")
+                    return {'success': False, 'message': 'Keycloak executable not found'}
 
-                # Set environment for Keycloak with admin credentials
+                # Set environment for Keycloak with admin credentials from environment
                 env = os.environ.copy()
-                env['KEYCLOAK_ADMIN'] = 'admin'
-                env['KEYCLOAK_ADMIN_PASSWORD'] = 'admin'
+                env['KEYCLOAK_ADMIN'] = os.environ.get('KEYCLOAK_ADMIN', 'admin')
+                env['KEYCLOAK_ADMIN_PASSWORD'] = os.environ.get('KEYCLOAK_ADMIN_PASSWORD', 'admin')
 
                 # Open log files
                 stdout_file = open(stdout_path, 'w')
@@ -253,10 +287,12 @@ class ServiceManager:
                 run_path = os.path.join(abs_path, run_script)
 
                 if not os.path.exists(python_path):
-                    return {'success': False, 'message': f'Python executable not found: {python_path}'}
+                    app.logger.error(f"Python executable not found for {service_name}: {python_path}")
+                    return {'success': False, 'message': 'Python executable not found'}
 
                 if not os.path.exists(run_path):
-                    return {'success': False, 'message': f'Run script not found: {run_path}'}
+                    app.logger.error(f"Run script not found for {service_name}: {run_path}")
+                    return {'success': False, 'message': 'Run script not found'}
 
                 # Set environment for the service
                 env = os.environ.copy()
@@ -325,16 +361,17 @@ class ServiceManager:
             time.sleep(2)
 
             if process.poll() is not None:
-                # Process died immediately - read error from log files
-                stderr_content = ''
+                # Process died immediately - log error details server-side
                 try:
                     with open(stderr_path, 'r') as f:
                         stderr_content = f.read()
+                    if stderr_content:
+                        app.logger.error(f"Service {service_name} startup failed: {stderr_content[:1000]}")
                 except (OSError, IOError):
                     pass
                 return {
                     'success': False,
-                    'message': f'Service failed to start. Check logs for details: {stderr_content[:500]}'
+                    'message': 'Service failed to start. Check logs for details.'
                 }
 
             # Update database

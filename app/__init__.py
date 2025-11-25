@@ -1,4 +1,5 @@
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 import json
 import os
 from dotenv import load_dotenv
@@ -7,6 +8,16 @@ from dotenv import load_dotenv
 load_dotenv('.flaskenv')
 
 app = Flask(__name__, instance_relative_config=True)
+
+# Apply ProxyFix to handle X-Forwarded headers from Nexus proxy
+# This is critical for correct client IP detection for rate limiting
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,      # Trust X-Forwarded-For
+    x_proto=1,    # Trust X-Forwarded-Proto
+    x_host=1,     # Trust X-Forwarded-Host
+    x_prefix=1    # Trust X-Forwarded-Prefix
+)
 
 # Set secret key for session management (required for flash messages)
 import secrets
@@ -75,14 +86,23 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'max_overflow': 5,
 }
 
-# Load services configuration for service discovery and management
+# Load services configuration for service management
+# Helm uses helm_services.json (full config with paths, ports, commands)
+# Other services use services.json (URLs only) via symlink
 try:
-    with open('services.json') as f:
+    with open('helm_services.json') as f:
         services_config = json.load(f)
         app.config['SERVICES'] = services_config
 except FileNotFoundError:
-    print("WARNING: services.json not found. Service management will not work.")
-    app.config['SERVICES'] = {}
+    # Fallback to services.json for backwards compatibility during migration
+    try:
+        with open('services.json') as f:
+            services_config = json.load(f)
+            app.config['SERVICES'] = services_config
+            print("WARNING: helm_services.json not found, using services.json. Run 'python install_manager.py update-config' to generate.")
+    except FileNotFoundError:
+        print("WARNING: No service configuration found. Run 'python install_manager.py update-config' to generate.")
+        app.config['SERVICES'] = {}
 
 from extensions import db
 db.init_app(app)
