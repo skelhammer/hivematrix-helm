@@ -561,41 +561,53 @@ else
 fi
 echo ""
 
-# Initialize Codex database
+# Initialize Codex database (matches ./install pattern for consistency)
 # Check if codex.conf exists and if it has a real database password (not placeholder)
-# Only check the database section - webhook secrets may have CHANGE_ME and that's fine
 CODEX_NEEDS_SETUP=false
+CODEX_RECREATE_DB=false
 if [ ! -f "$PARENT_DIR/hivematrix-codex/instance/codex.conf" ]; then
     CODEX_NEEDS_SETUP=true
+    echo -e "${YELLOW}Codex config not found - will configure${NC}"
 elif ! grep -q "^connection_string" "$PARENT_DIR/hivematrix-codex/instance/codex.conf"; then
     # Config exists but no connection string - needs setup
     CODEX_NEEDS_SETUP=true
     echo -e "${YELLOW}Codex config missing database connection - will configure${NC}"
+elif grep "^connection_string" "$PARENT_DIR/hivematrix-codex/instance/codex.conf" | grep -q "CHANGE_ME"; then
+    # Config exists but connection string has placeholder password - needs setup
+    CODEX_NEEDS_SETUP=true
+    echo -e "${YELLOW}Codex config has placeholder password - will configure${NC}"
 fi
 
 if [ "$CODEX_NEEDS_SETUP" = true ]; then
     echo -e "${YELLOW}Setting up Codex database...${NC}"
 
-    # Generate secure random password for Codex database
+    # Generate secure random password for Codex database (matches ./install pattern)
     CODEX_DB_PASS=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-24)
+    echo -e "${GREEN}✓ Generated secure password for database user${NC}"
 
-    # Check if database already exists (in case only config was missing/placeholder)
+    # Check if database already exists
+    echo -e "${YELLOW}Checking if database exists...${NC}"
     DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='codex_db'" 2>/dev/null || echo "0")
 
     if [ "$DB_EXISTS" = "1" ]; then
-        # Database exists, just update the password
-        echo "  Database exists, updating password..."
-        sudo -u postgres psql <<EOF
-ALTER USER codex_user WITH PASSWORD '$CODEX_DB_PASS';
-EOF
+        # Database exists, update password and run migration
+        echo -e "${YELLOW}Database 'codex_db' already exists - updating password${NC}"
+        sudo -u postgres psql -c "ALTER USER codex_user WITH PASSWORD '$CODEX_DB_PASS';" 2>/dev/null || true
+        CODEX_RECREATE_DB=false
     else
-        # Create database and user from scratch
-        echo "  Creating database and user..."
-        sudo -u postgres psql <<EOF
-CREATE DATABASE codex_db;
-CREATE USER codex_user WITH PASSWORD '$CODEX_DB_PASS';
-GRANT ALL PRIVILEGES ON DATABASE codex_db TO codex_user;
-EOF
+        # Create database and user from scratch (matches ./install pattern exactly)
+        CODEX_RECREATE_DB=true
+        echo -e "${YELLOW}Creating PostgreSQL database and user...${NC}"
+
+        # Create user (drop first to handle reinstalls cleanly)
+        sudo -u postgres psql -c "DROP USER IF EXISTS codex_user;" 2>/dev/null || true
+        sudo -u postgres psql -c "CREATE USER codex_user WITH PASSWORD '$CODEX_DB_PASS';"
+
+        # Create database with owner
+        sudo -u postgres psql -c "CREATE DATABASE codex_db OWNER codex_user;"
+
+        # Grant privileges
+        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE codex_db TO codex_user;"
 
         # Grant schema permissions (PostgreSQL 15+)
         sudo -u postgres psql -d codex_db <<EOF
@@ -605,16 +617,48 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO codex_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO codex_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO codex_user;
 EOF
+
+        echo -e "${GREEN}✓ Database created${NC}"
     fi
 
-    # Initialize Codex schema using headless mode
+    # Run init_db.py to setup schema (matches ./install pattern)
+    echo ""
+    echo -e "${YELLOW}Running init_db.py to setup database schema...${NC}"
+    echo ""
+
+    export PGPASSWORD="$CODEX_DB_PASS"
+
     cd "$PARENT_DIR/hivematrix-codex"
     source pyenv/bin/activate
-    python init_db.py --headless --db-host localhost --db-port 5432 --db-name codex_db --db-user codex_user --db-password "$CODEX_DB_PASS"
+
+    if [ "$CODEX_RECREATE_DB" = true ]; then
+        # New database - run with --create-sample-data (matches ./install for codex)
+        python init_db.py --headless \
+            --db-host localhost \
+            --db-port 5432 \
+            --db-name codex_db \
+            --db-user codex_user \
+            --db-password "$CODEX_DB_PASS" \
+            --create-sample-data
+    else
+        # Existing database - run migration only
+        python init_db.py --headless \
+            --db-host localhost \
+            --db-port 5432 \
+            --db-name codex_db \
+            --db-user codex_user \
+            --db-password "$CODEX_DB_PASS" \
+            --migrate-only
+    fi
+
     deactivate
+    unset PGPASSWORD
+
     cd "$SCRIPT_DIR"
     source pyenv/bin/activate
-    echo -e "${GREEN}✓ Codex database created${NC}"
+
+    echo ""
+    echo -e "${GREEN}✓ Database setup complete${NC}"
     echo ""
     echo -e "${BLUE}Codex Database Credentials:${NC}"
     echo "  Database: codex_db"
@@ -625,7 +669,7 @@ EOF
     echo -e "${YELLOW}  To retrieve later: cd hivematrix-codex && ./get_db_credentials.sh${NC}"
     echo ""
 else
-    echo -e "${GREEN}✓ Codex database already exists${NC}"
+    echo -e "${GREEN}✓ Codex database already configured${NC}"
     echo ""
     # Extract password from connection_string
     if [ -f "$PARENT_DIR/hivematrix-codex/instance/codex.conf" ]; then
