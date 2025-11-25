@@ -25,34 +25,61 @@ Helm is the control center for HiveMatrix - it manages all services, monitors sy
 
 ## Installation
 
-### Prerequisites
+### System Requirements
 
-Install all system dependencies:
+**Automatically installed by `start.sh`:**
+- Python 3.8+ (python3, python3-pip, python3-venv)
+- Git
+- Java 17 (OpenJDK) - for Keycloak authentication server
+- PostgreSQL - for service databases
+- Redis - for Core session storage
+- wget, jq
 
-```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip postgresql nginx certbot python3-certbot-nginx
-```
+**Manual installation required (optional services):**
+- Neo4j 5.x - only required if using KnowledgeTree
 
 ### First Time Setup
 
 ```bash
-# Clone all HiveMatrix repos (if not already done)
-cd /path/to/hivematrix
-for repo in hivematrix-core hivematrix-nexus hivematrix-beacon hivematrix-codex hivematrix-knowledgetree hivematrix-ledger hivematrix-helm hivematrix-brainhair; do
-    git clone git@github.com:yourorg/$repo.git
-done
-
-# Run Helm installer
+# 1. Clone only Helm (it will clone Core, Nexus, Codex automatically)
+mkdir hivematrix && cd hivematrix
+git clone https://github.com/skelhammer/hivematrix-helm
 cd hivematrix-helm
-./install.sh
+
+# 2. Run start.sh - this handles everything:
+#    - Installs system dependencies (Python, PostgreSQL, Redis, Java, etc.)
+#    - Downloads and configures Keycloak
+#    - Clones Core, Nexus, and Codex
+#    - Creates Python virtual environments
+#    - Sets up databases
+#    - Generates SSL certificates
+#    - Starts all required services
+./start.sh
 ```
 
-### Quick Start (Development)
+That's it! The `start.sh` script is a complete installer and launcher.
+
+### Installing Additional Services
+
+Additional services (Beacon, Ledger, Brainhair, KnowledgeTree) can be added after initial setup:
 
 ```bash
-source pyenv/bin/activate
-python cli.py start all
+# Clone any additional services you need
+cd /path/to/hivematrix
+git clone https://github.com/skelhammer/hivematrix-beacon
+git clone https://github.com/skelhammer/hivematrix-ledger
+git clone https://github.com/skelhammer/hivematrix-brainhair
+git clone https://github.com/skelhammer/hivematrix-knowledgetree  # Requires Neo4j
+
+# Run start.sh again - it auto-detects and installs new services
+cd hivematrix-helm
+./start.sh
+```
+
+### Quick Start (after initial setup)
+
+```bash
+./start.sh
 ```
 
 ## Starting and Stopping Services

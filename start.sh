@@ -852,7 +852,7 @@ else
 fi
 
 # Start Keycloak
-echo -e "${YELLOW}[1/3] Starting Keycloak...${NC}"
+echo -e "${YELLOW}[1/4] Starting Keycloak...${NC}"
 OUTPUT=$(python cli.py start keycloak 2>&1)
 EXIT_CODE=$?
 if echo "$OUTPUT" | grep -q "already running"; then
@@ -933,7 +933,7 @@ else
 fi
 
 # Start Core
-echo -e "${YELLOW}[2/3] Starting Core...${NC}"
+echo -e "${YELLOW}[2/4] Starting Core...${NC}"
 OUTPUT=$(python cli.py start core 2>&1)
 EXIT_CODE=$?
 if echo "$OUTPUT" | grep -q "already running"; then
@@ -952,7 +952,7 @@ fi
 echo ""
 
 # Start Nexus
-echo -e "${YELLOW}[3/3] Starting Nexus...${NC}"
+echo -e "${YELLOW}[3/4] Starting Nexus...${NC}"
 OUTPUT=$(python cli.py start nexus 2>&1)
 EXIT_CODE=$?
 if echo "$OUTPUT" | grep -q "already running"; then
@@ -963,6 +963,25 @@ echo "  Waiting for Nexus to initialize..."
 sleep 5
 else
 echo -e "${RED}✗ Failed to start Nexus${NC}"
+echo "$OUTPUT"
+set -e
+cleanup
+fi
+
+echo ""
+
+# Start Codex (master data management - required for all other services)
+echo -e "${YELLOW}[4/4] Starting Codex...${NC}"
+OUTPUT=$(python cli.py start codex 2>&1)
+EXIT_CODE=$?
+if echo "$OUTPUT" | grep -q "already running"; then
+echo -e "${BLUE}  ✓ Service already running${NC}"
+elif [ $EXIT_CODE -eq 0 ] || echo "$OUTPUT" | grep -q "started"; then
+echo -e "${GREEN}✓ Codex started${NC}"
+echo "  Waiting for Codex to initialize..."
+sleep 3
+else
+echo -e "${RED}✗ Failed to start Codex${NC}"
 echo "$OUTPUT"
 set -e
 cleanup
@@ -981,13 +1000,13 @@ echo "  Detecting Additional Services"
 echo "================================================================"
 echo ""
 
-# Find all hivematrix-* directories (excluding core, nexus, helm)
+# Find all hivematrix-* directories (excluding core, nexus, codex, helm)
 ADDITIONAL_SERVICES=()
 for dir in "$PARENT_DIR"/hivematrix-*; do
     if [ -d "$dir" ]; then
         service_name=$(basename "$dir" | sed 's/^hivematrix-//')
-        # Skip core, nexus, helm
-        if [[ "$service_name" != "core" ]] && [[ "$service_name" != "nexus" ]] && [[ "$service_name" != "helm" ]]; then
+        # Skip core, nexus, codex, helm (these are required services started above)
+        if [[ "$service_name" != "core" ]] && [[ "$service_name" != "nexus" ]] && [[ "$service_name" != "codex" ]] && [[ "$service_name" != "helm" ]]; then
             # Check if it has a run.py file (indicates it's a Flask service)
             if [ -f "$dir/run.py" ]; then
                 ADDITIONAL_SERVICES+=("$service_name")
