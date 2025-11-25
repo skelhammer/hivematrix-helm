@@ -562,14 +562,15 @@ fi
 echo ""
 
 # Initialize Codex database
-# Check if codex.conf exists and if it has a real password (not CHANGE_ME placeholder)
+# Check if codex.conf exists and if it has a real database password (not placeholder)
+# Only check the database section - webhook secrets may have CHANGE_ME and that's fine
 CODEX_NEEDS_SETUP=false
 if [ ! -f "$PARENT_DIR/hivematrix-codex/instance/codex.conf" ]; then
     CODEX_NEEDS_SETUP=true
-elif grep -q "CHANGE_ME" "$PARENT_DIR/hivematrix-codex/instance/codex.conf"; then
-    # Config exists but has placeholder password - needs setup
+elif ! grep -q "^connection_string" "$PARENT_DIR/hivematrix-codex/instance/codex.conf"; then
+    # Config exists but no connection string - needs setup
     CODEX_NEEDS_SETUP=true
-    echo -e "${YELLOW}Codex config has placeholder password - will regenerate${NC}"
+    echo -e "${YELLOW}Codex config missing database connection - will configure${NC}"
 fi
 
 if [ "$CODEX_NEEDS_SETUP" = true ]; then
