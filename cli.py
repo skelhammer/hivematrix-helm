@@ -5,9 +5,67 @@ Command-line interface for managing services
 """
 
 import sys
+import json
 import argparse
+from pathlib import Path
 from app import app
 from app.service_manager import ServiceManager
+
+
+def ensure_services_config():
+    """
+    Ensure helm_services.json exists with full config.
+    Auto-regenerates if missing or outdated.
+    """
+    helm_services_json = Path(__file__).parent / "helm_services.json"
+
+    if not helm_services_json.exists():
+        print("helm_services.json not found, generating...")
+        _regenerate_services_json()
+        return
+
+    try:
+        with open(helm_services_json) as f:
+            services = json.load(f)
+
+        # Check if any service is missing required fields
+        needs_update = False
+        for name, config in services.items():
+            if 'path' not in config or 'port' not in config:
+                needs_update = True
+                break
+
+        if needs_update:
+            print("helm_services.json is missing required fields, regenerating...")
+            _regenerate_services_json()
+
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"Error reading helm_services.json: {e}, regenerating...")
+        _regenerate_services_json()
+
+
+def _regenerate_services_json():
+    """Run install_manager.py update-config to regenerate service configs"""
+    import subprocess
+    helm_dir = Path(__file__).parent
+    python_bin = helm_dir / "pyenv" / "bin" / "python"
+
+    if not python_bin.exists():
+        python_bin = "python3"
+    else:
+        python_bin = str(python_bin)
+
+    result = subprocess.run(
+        [python_bin, "install_manager.py", "update-config"],
+        cwd=helm_dir,
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode == 0:
+        print("✓ Service configuration regenerated successfully")
+    else:
+        print(f"Warning: Failed to regenerate service config: {result.stderr}")
 
 def status_command(args):
     """Show status of all services"""
@@ -124,6 +182,9 @@ Examples:
     if not args.command:
         parser.print_help()
         sys.exit(1)
+
+    # Ensure services.json is properly configured before any command
+    ensure_services_config()
 
     # Route to appropriate command
     commands = {

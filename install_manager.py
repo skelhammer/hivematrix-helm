@@ -32,8 +32,8 @@ class InstallManager:
         self.helm_dir = Path(helm_dir) if helm_dir else Path(__file__).parent
         self.parent_dir = self.helm_dir.parent
         self.apps_registry_file = self.helm_dir / "apps_registry.json"
-        self.services_json = self.helm_dir / "services.json"
-        self.master_services_json = self.helm_dir / "master_services.json"
+        self.helm_services_json = self.helm_dir / "helm_services.json"  # Full config for Helm only
+        self.services_json = self.helm_dir / "services.json"  # URLs only, symlinked to other services
 
         # Load registry
         with open(self.apps_registry_file, 'r') as f:
@@ -348,13 +348,19 @@ class InstallManager:
         return discovered
 
     def update_services_json(self):
-        """Update services.json with ALL discovered services (not just registry)"""
+        """
+        Update service configuration files.
+
+        Generates two files:
+        1. helm_services.json - Full config for Helm's service management (path, port, commands)
+        2. services.json - URLs only, symlinked to other services for service-to-service calls
+        """
         # Scan for all services
         discovered = self.scan_all_services()
-        services = {}
+        helm_services = {}  # Full config for Helm
+        public_services = {}  # URLs only for other services
 
         # Add Keycloak if installed
-        # Load version from config file
         version_file = self.helm_dir / "keycloak_version.conf"
         keycloak_version = "26.4.0"  # default
         if version_file.exists():
@@ -365,47 +371,58 @@ class InstallManager:
                         break
 
         if (self.parent_dir / f"keycloak-{keycloak_version}").exists():
-            services['keycloak'] = {
+            helm_services['keycloak'] = {
                 "url": "http://localhost:8080",
                 "path": f"../keycloak-{keycloak_version}",
                 "port": 8080,
                 "start_command": "bin/kc.sh start-dev",
                 "type": "keycloak",
-                "visible": False,  # Infrastructure service, access via /keycloak/ proxy only
-                "admin_only": True  # Only admins should access Keycloak admin console
+                "visible": False,
+                "admin_only": True
+            }
+            public_services['keycloak'] = {
+                "url": "http://localhost:8080",
+                "visible": False,
+                "admin_only": True
             }
 
         # Add Helm (the orchestration service itself)
-        services['helm'] = {
+        helm_services['helm'] = {
             "url": "http://localhost:5004",
             "path": ".",
             "port": 5004,
             "python_bin": "pyenv/bin/python",
             "run_script": "run.py",
             "visible": True,
-            "admin_only": True  # Only admins should access orchestration interface
+            "admin_only": True
+        }
+        public_services['helm'] = {
+            "url": "http://localhost:5004",
+            "visible": True,
+            "admin_only": True
         }
 
         # Add all discovered services
         for service_name, app_info in discovered.items():
-            # Nexus uses HTTPS on port 443, other services use HTTP
             protocol = "https" if service_name == "nexus" and app_info['port'] == 443 else "http"
-            service_config = {
-                "url": f"{protocol}://localhost:{app_info['port']}",
+            url = f"{protocol}://localhost:{app_info['port']}"
+            visible = service_name not in ['core', 'nexus']
+
+            # Full config for Helm
+            helm_services[service_name] = {
+                "url": url,
                 "path": f"../hivematrix-{service_name}",
                 "port": app_info['port'],
                 "python_bin": "pyenv/bin/python",
-                "run_script": "run.py"
+                "run_script": "run.py",
+                "visible": visible
             }
 
-            # Infrastructure services (core, nexus) should not be visible in sidebar
-            # They are accessed indirectly - core for auth, nexus as the proxy
-            if service_name in ['core', 'nexus']:
-                service_config['visible'] = False
-            else:
-                service_config['visible'] = True
-
-            services[service_name] = service_config
+            # Public config includes URL and visibility (for Nexus sidebar)
+            public_services[service_name] = {
+                "url": url,
+                "visible": visible
+            }
 
         # Sort services according to SERVICE_ORDER
         def sort_key(item):
@@ -413,25 +430,18 @@ class InstallManager:
             try:
                 return SERVICE_ORDER.index(service_name)
             except ValueError:
-                # Service not in order list - put at end, sorted alphabetically
                 return len(SERVICE_ORDER) + ord(service_name[0])
 
-        sorted_services = dict(sorted(services.items(), key=sort_key))
+        sorted_helm_services = dict(sorted(helm_services.items(), key=sort_key))
+        sorted_public_services = dict(sorted(public_services.items(), key=sort_key))
 
-        # Write services.json with sorted order
+        # Write helm_services.json - Full config for Helm only
+        with open(self.helm_services_json, 'w') as f:
+            json.dump(sorted_helm_services, f, indent=2)
+
+        # Write services.json - URLs only, symlinked to other services
         with open(self.services_json, 'w') as f:
-            json.dump(sorted_services, f, indent=2)
-
-        # Update master_services.json with same order
-        master_services = {}
-        for key, value in sorted_services.items():
-            master_services[key] = {
-                "url": value['url'],
-                "port": value['port']
-            }
-
-        with open(self.master_services_json, 'w') as f:
-            json.dump(master_services, f, indent=2)
+            json.dump(sorted_public_services, f, indent=2)
 
 
 def main():
@@ -496,7 +506,7 @@ def main():
 
     elif command == 'update-config':
         manager.update_services_json()
-        print("Updated services.json and master_services.json")
+        print("Updated helm_services.json (full config) and services.json (URLs only)")
 
     else:
         print(f"Unknown command: {command}")
