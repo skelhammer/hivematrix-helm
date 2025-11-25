@@ -92,6 +92,12 @@ EOF
 echo -e "${GREEN}✓ Service file generated${NC}"
 echo ""
 
+# Configure git safe.directory for version detection
+echo -e "${YELLOW}Configuring git safe.directory...${NC}"
+sudo git config --system --add safe.directory '*'
+echo -e "${GREEN}✓ Git safe.directory configured${NC}"
+echo ""
+
 # Reload systemd
 echo -e "${YELLOW}Reloading systemd daemon...${NC}"
 sudo systemctl daemon-reload
