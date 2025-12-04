@@ -83,7 +83,7 @@ PrivateTmp=yes
 NoNewPrivileges=true
 
 # Environment
-Environment="PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin"
+Environment="PATH=$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin"
 Environment="HIVEMATRIX_DEV_MODE=false"
 
 [Install]
